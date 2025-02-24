@@ -105,7 +105,26 @@ function App() {
       }
       
       // Sort all logs by timestamp
-      setLogs(allLogs.sort((a, b) => a.timestamp - b.timestamp));
+      const sortedLogs = allLogs.sort((a, b) => a.timestamp - b.timestamp);
+      setLogs(sortedLogs);
+      
+      // Update time range based on log timestamps
+      if (sortedLogs.length > 0) {
+        // Find min and max timestamps
+        const minTimestamp = sortedLogs[0].timestamp;
+        const maxTimestamp = sortedLogs[sortedLogs.length - 1].timestamp;
+        
+        // Format timestamps for datetime-local input (YYYY-MM-DDThh:mm)
+        const formatDateForInput = (date) => {
+          return date.toISOString().slice(0, 16);
+        };
+        
+        // Update time range with min and max timestamps
+        setTimeRange({
+          start: formatDateForInput(minTimestamp),
+          end: formatDateForInput(maxTimestamp)
+        });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -220,7 +239,7 @@ function App() {
         <button onClick={fetchLogs} disabled={loading || selectedPods.length === 0}>
           {loading ? 'Fetching...' : 'Fetch Logs'}
         </button>
-        <button onClick={() => setShowEditor(true)}>Edit Parsing Options</button>
+        <button style={{marginLeft: '5px'}} onClick={() => setShowEditor(true)}>Edit Parsing Options</button>
       </div>
 
       {showEditor && (
