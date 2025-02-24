@@ -129,8 +129,7 @@ function App() {
     <div className="App">
       <h1>Kubernetes Log Viewer</h1>
 
-      {/* Namespace Selector */}
-      <div>
+      <div className="selectors">
         <label>Namespace: </label>
         <select value={selectedNamespace} onChange={e => setSelectedNamespace(e.target.value)}>
           <option value="">Select Namespace</option>
@@ -138,10 +137,7 @@ function App() {
             <option key={ns} value={ns}>{ns}</option>
           ))}
         </select>
-      </div>
 
-      {/* Pod Selector */}
-      <div>
         <label>Pod: </label>
         <select value={selectedPod} onChange={e => setSelectedPod(e.target.value)}>
           <option value="">Select Pod</option>
@@ -151,8 +147,7 @@ function App() {
         </select>
       </div>
 
-      {/* Log Retrieval Options */}
-      <div>
+      <div className="options">
         <label>Log Option: </label>
         <select value={logOption} onChange={e => setLogOption(e.target.value)}>
           <option value="complete">Complete Logs</option>
@@ -166,15 +161,12 @@ function App() {
             min="1"
           />
         )}
+        <button onClick={fetchLogs} disabled={loading}>
+          {loading ? 'Fetching...' : 'Fetch Logs'}
+        </button>
+        <button onClick={() => setShowEditor(true)}>Edit Parsing Options</button>
       </div>
 
-      {/* Fetch Logs Button */}
-      <button onClick={fetchLogs} disabled={loading}>
-        {loading ? 'Fetching...' : 'Fetch Logs'}
-      </button>
-
-      {/* Parsing Options Editor */}
-      <button onClick={() => setShowEditor(true)}>Edit Parsing Options</button>
       {showEditor && (
         <div className="modal">
           <h2>Edit Parsing Options</h2>
@@ -216,8 +208,7 @@ function App() {
         </div>
       )}
 
-      {/* Search and Time Range Filters */}
-      <div>
+      <div className="filters">
         <input
           type="text"
           placeholder="Search logs..."
@@ -236,9 +227,9 @@ function App() {
         />
       </div>
 
-      {/* Logs Display */}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <div>
+      {error && <p className="error">{error}</p>}
+      {loading && <p className="loading">Loading...</p>}
+      <div className="logs">
         <h2>Logs</h2>
         <ul>
           {filteredLogs.map((log, index) => (
