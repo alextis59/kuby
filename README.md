@@ -31,7 +31,7 @@ This is a local web application designed to retrieve, parse, and search logs fro
 1. **Clone the Repository**:
    \`\`\`bash
    git clone <repository-url>
-   cd kubernetes-log-viewer
+   cd kuby
    \`\`\`
 
 2. **Install Back-End Dependencies**:
