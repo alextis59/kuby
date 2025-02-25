@@ -271,89 +271,128 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Kubernetes Log Viewer</h1>
+      <h1>KUBY</h1>
+      
+      <div className="main-container">
+        {/* Left toolbar with all controls */}
+        <div className="toolbar">
+          <div className="selectors">
+            <label>Namespace: </label>
+            <select value={selectedNamespace} onChange={e => {
+              setSelectedNamespace(e.target.value);
+              setSelectedPods([]);
+            }}>
+              <option value="">Select Namespace</option>
+              {namespaces.map(ns => (
+                <option key={ns} value={ns}>{ns}</option>
+              ))}
+            </select>
 
-      <div className="selectors">
-        <label>Namespace: </label>
-        <select value={selectedNamespace} onChange={e => {
-          setSelectedNamespace(e.target.value);
-          setSelectedPods([]);
-        }}>
-          <option value="">Select Namespace</option>
-          {namespaces.map(ns => (
-            <option key={ns} value={ns}>{ns}</option>
-          ))}
-        </select>
-
-        <div className="pod-selector">
-          <label>Pods: </label>
-          <div className="pod-selector-actions">
-            <button 
-              className="select-all-button" 
-              onClick={() => setSelectedPods([...pods])}
-              disabled={pods.length === 0}>
-              Select All
-            </button>
-            <button 
-              className="clear-button" 
-              onClick={() => setSelectedPods([])}
-              disabled={selectedPods.length === 0}>
-              Clear All
-            </button>
-          </div>
-          <div className="pods-container">
-            {pods.map(pod => (
-              <div key={pod} className="pod-checkbox">
-                <input
-                  type="checkbox"
-                  id={`pod-${pod}`}
-                  checked={selectedPods.includes(pod)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedPods([...selectedPods, pod]);
-                    } else {
-                      setSelectedPods(selectedPods.filter(p => p !== pod));
-                    }
-                  }}
-                />
-                <label htmlFor={`pod-${pod}`}>{pod}</label>
+            <div className="pod-selector">
+              <label>Pods: </label>
+              <div className="pod-selector-actions">
+                <button 
+                  className="select-all-button" 
+                  onClick={() => setSelectedPods([...pods])}
+                  disabled={pods.length === 0}>
+                  Select All
+                </button>
+                <button 
+                  className="clear-button" 
+                  onClick={() => setSelectedPods([])}
+                  disabled={selectedPods.length === 0}>
+                  Clear All
+                </button>
               </div>
-            ))}
+              <div className="pods-container">
+                {pods.map(pod => (
+                  <div key={pod} className="pod-checkbox">
+                    <input
+                      type="checkbox"
+                      id={`pod-${pod}`}
+                      checked={selectedPods.includes(pod)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedPods([...selectedPods, pod]);
+                        } else {
+                          setSelectedPods(selectedPods.filter(p => p !== pod));
+                        }
+                      }}
+                    />
+                    <label htmlFor={`pod-${pod}`}>{pod}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+
+          <div className="options">
+            <label>Log Option:</label>
+            <select value={logOption} onChange={e => setLogOption(e.target.value)}>
+              <option value="complete">Complete Logs</option>
+              <option value="tail">Last X Lines</option>
+            </select>
+            {logOption === 'tail' && (
+              <>
+                <label>Number of Lines:</label>
+                <input
+                  type="number"
+                  value={tailLines}
+                  onChange={e => setTailLines(e.target.value)}
+                  min="1"
+                />
+              </>
+            )}
+            <button onClick={fetchLogs} disabled={loading || selectedPods.length === 0}>
+              {loading ? 'Fetching...' : 'Fetch Logs'}
+            </button>
+            <button onClick={() => setShowEditor(true)}>Edit Parsing Options</button>
+          </div>
+
+          <div className="filters">
+            <label>Search Logs:</label>
+            <input
+              type="text"
+              placeholder="Search logs..."
+              value={searchString}
+              onChange={e => setSearchString(e.target.value)}
+            />
+            <label>Time Range:</label>
+            <input
+              type="datetime-local"
+              value={timeRange.start}
+              onChange={e => setTimeRange({ ...timeRange, start: e.target.value })}
+            />
+            <input
+              type="datetime-local"
+              value={timeRange.end}
+              onChange={e => setTimeRange({ ...timeRange, end: e.target.value })}
+            />
+          </div>
+          
+          {error && <p className="error">{error}</p>}
+          {loading && <p className="loading">Loading...</p>}
+        </div>
+        
+        {/* Right side with logs */}
+        <div className="logs-container">
+          <div className="logs">
+            <h2>Logs {filteredLogs.length > 0 ? `(${filteredLogs.length})` : ''}</h2>
+            <ul>
+              {filteredLogs.map((log, index) => (
+                <li key={index}>
+                  <span className="log-timestamp">{log.timestamp.toLocaleString()}</span>
+                  <span className="log-pod">[{log.podName}]</span>
+                  <span className="log-line">{log.line}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
-
-      <div className="selected-pods-summary">
-        {selectedPods.length > 0 ? (
-          <div>
-            <span>Selected pods ({selectedPods.length}): </span>
-            <span className="pod-list">{selectedPods.join(', ')}</span>
-          </div>
-        ) : (
-          <div className="no-pods-selected">No pods selected</div>
-        )}
-      </div>
-
-      <div className="options">
-        <label>Log Option: </label>
-        <select value={logOption} onChange={e => setLogOption(e.target.value)}>
-          <option value="complete">Complete Logs</option>
-          <option value="tail">Last X Lines</option>
-        </select>
-        {logOption === 'tail' && (
-          <input
-            type="number"
-            value={tailLines}
-            onChange={e => setTailLines(e.target.value)}
-            min="1"
-          />
-        )}
-        <button onClick={fetchLogs} disabled={loading || selectedPods.length === 0}>
-          {loading ? 'Fetching...' : 'Fetch Logs'}
-        </button>
-        <button style={{marginLeft: '5px'}} onClick={() => setShowEditor(true)}>Edit Parsing Options</button>
-      </div>
-
+      
+      {/* Modal for editing parsing options */}
       {showEditor && (
         <div className="modal">
           <h2>Edit Parsing Options</h2>
@@ -509,40 +548,6 @@ function App() {
           </button>
         </div>
       )}
-
-      <div className="filters">
-        <input
-          type="text"
-          placeholder="Search logs..."
-          value={searchString}
-          onChange={e => setSearchString(e.target.value)}
-        />
-        <input
-          type="datetime-local"
-          value={timeRange.start}
-          onChange={e => setTimeRange({ ...timeRange, start: e.target.value })}
-        />
-        <input
-          type="datetime-local"
-          value={timeRange.end}
-          onChange={e => setTimeRange({ ...timeRange, end: e.target.value })}
-        />
-      </div>
-
-      {error && <p className="error">{error}</p>}
-      {loading && <p className="loading">Loading...</p>}
-      <div className="logs">
-        <h2>Logs {filteredLogs.length > 0 ? `(${filteredLogs.length})` : ''}</h2>
-        <ul>
-          {filteredLogs.map((log, index) => (
-            <li key={index}>
-              <span className="log-timestamp">{log.timestamp.toLocaleString()}</span>
-              <span className="log-pod">[{log.podName}]</span>
-              <span className="log-line">{log.line}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }
