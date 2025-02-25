@@ -119,11 +119,13 @@ function App() {
           return date.toISOString().slice(0, 16);
         };
         
-        // Update time range with min and max timestamps
-        setTimeRange({
-          start: formatDateForInput(minTimestamp),
-          end: formatDateForInput(maxTimestamp)
-        });
+        // Auto-update time range with min and max timestamps only if empty
+        if (!timeRange.start && !timeRange.end) {
+          setTimeRange({
+            start: formatDateForInput(minTimestamp),
+            end: formatDateForInput(maxTimestamp)
+          });
+        }
       }
     } catch (err) {
       setError(err.message);
