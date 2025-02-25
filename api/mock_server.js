@@ -22,8 +22,8 @@ const mockData = {
     'app-staging': ['frontend-test-12345', 'backend-test-67890', 'cache-test-abcde']
   },
   logGenerators: {
-    // Function to generate a random timestamp within the last 24 hours
-    getRandomTimestamp: () => {
+    // Function to generate a random timestamp within the last 24 hours with different formats
+    getRandomTimestamp: (podType) => {
       const now = new Date();
       const hoursAgo = Math.floor(Math.random() * 24);
       const minutesAgo = Math.floor(Math.random() * 60);
@@ -34,7 +34,25 @@ const mockData = {
       timestamp.setMinutes(now.getMinutes() - minutesAgo);
       timestamp.setSeconds(now.getSeconds() - secondsAgo);
       
-      return timestamp.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      // Different timestamp formats for different pod types
+      if (podType === 'frontend') {
+        // Frontend format: MM/DD/YYYY HH:MM:SS
+        return timestamp.toLocaleString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      } else if (podType === 'backend') {
+        // Backend format: YYYY-MM-DD HH:MM:SS.sss
+        return timestamp.toISOString().replace('T', ' ').replace('Z', '');
+      } else {
+        // Default format: ISO 8601 without milliseconds
+        return timestamp.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      }
     },
     
     // Log patterns for different pod types
@@ -85,17 +103,18 @@ const mockData = {
     
     // Generate a single log entry
     generateLogEntry: (podName) => {
-      const timestamp = mockData.logGenerators.getRandomTimestamp();
-      let podType = 'backend'; // default
+      // Simplify type determination by just checking if it starts with frontend/backend
+      let podType;
+      if (podName.startsWith('frontend')) {
+        podType = 'frontend';
+      } else if (podName.startsWith('backend')) {
+        podType = 'backend';
+      } else {
+        podType = 'default';
+      }
       
-      // Determine pod type from name
-      Object.keys(mockData.logGenerators.logPatterns).forEach(type => {
-        if (podName.includes(type)) {
-          podType = type;
-        }
-      });
-      
-      const logPatterns = mockData.logGenerators.logPatterns[podType] || mockData.logGenerators.logPatterns.backend;
+      const timestamp = mockData.logGenerators.getRandomTimestamp(podType);
+      const logPatterns = mockData.logGenerators.logPatterns[podType === 'default' ? 'nginx' : podType] || mockData.logGenerators.logPatterns.backend;
       const logMessage = logPatterns[Math.floor(Math.random() * logPatterns.length)];
       
       return `[${timestamp}] ${logMessage}`;

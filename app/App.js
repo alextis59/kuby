@@ -1,6 +1,7 @@
 // React import is provided by the script tags in index.html
 const React = window.React;
 const ReactDOM = window.ReactDOM;
+const moment = window.moment || require('moment');
 
 // Set the base URL to point to the API server
 const BASE_URL = 'http://localhost:3000';
@@ -138,17 +139,116 @@ function App() {
   const parseLogs = (logsText, podName, parsingOptions) => {
     const lines = logsText.split('\n').filter(line => line);
     const defaultPattern = /^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\]/;
-    const customPatternStr = parsingOptions[podName];
-    const pattern = customPatternStr ? new RegExp(customPatternStr) : defaultPattern;
-    let lastTimestamp = null;
-    return lines.map(line => {
-      const match = line.match(pattern);
-      let timestamp;
-      if (match && match[1]) {
-        timestamp = new Date(match[1]);
-        if (!isNaN(timestamp)) lastTimestamp = timestamp;
+    
+    // Find matching pod prefix in parsingOptions
+    let matchedPrefix = '';
+    let podOptions = {};
+    
+    // Sort prefixes by length (longest first) to match most specific prefix
+    const prefixes = Object.keys(parsingOptions).sort((a, b) => b.length - a.length);
+    
+    for (const prefix of prefixes) {
+      if (podName.startsWith(prefix)) {
+        matchedPrefix = prefix;
+        podOptions = parsingOptions[prefix];
+        break;
       }
-      timestamp = lastTimestamp || new Date(); // Use previous timestamp if none found
+    }
+    
+    // Pattern for extracting timestamp and the format to parse it
+    let pattern, formatString;
+    
+    // Convert format tokens to regex patterns
+    const formatTokensToRegex = {
+      'YYYY': '(\\d{4})',
+      'YY': '(\\d{2})',
+      'MM': '(\\d{2})',
+      'DD': '(\\d{2})',
+      'HH': '(\\d{2})',
+      'mm': '(\\d{2})',
+      'SS': '(\\d{2})',
+      'sss': '(\\d{3})'
+    };
+    
+    // If podOptions is a string, it's the old format (just regex)
+    if (typeof podOptions === 'string') {
+      pattern = new RegExp(podOptions);
+    } 
+    // If it's an object with format property
+    else if (podOptions && podOptions.format) {
+      formatString = podOptions.format;
+      
+      // If regex is provided, use it
+      if (podOptions.regex) {
+        pattern = new RegExp(podOptions.regex);
+      } 
+      // Otherwise, build a regex from the format
+      else {
+        // Escape special regex characters in the format string
+        let regexFromFormat = formatString.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        
+        // Replace format tokens with regex patterns
+        for (const [token, regex] of Object.entries(formatTokensToRegex)) {
+          regexFromFormat = regexFromFormat.replace(token, regex);
+        }
+        
+        // Create a pattern that searches for this timestamp format within brackets
+        pattern = new RegExp(`\\[(${regexFromFormat})\\]`);
+      }
+    } 
+    // Otherwise use default
+    else {
+      pattern = defaultPattern;
+    }
+    
+    let lastTimestamp = null;
+    
+    // For debugging
+    console.log(`Pod: ${podName}, Format: ${formatString}, Pattern: ${pattern}`);
+    
+    return lines.map(line => {
+      let timestamp;
+      
+      // Try to match the pattern in the line
+      const match = line.match(pattern);
+      
+      if (match && match[1]) {
+        const timestampStr = match[1];
+        
+        // If we have a format string, use moment.js to parse
+        if (formatString) {
+          // Convert our custom format tokens to moment format tokens if needed
+          const momentFormat = formatString
+            .replace('YYYY', 'YYYY')
+            .replace('YY', 'YY')
+            .replace('MM', 'MM')
+            .replace('DD', 'DD')
+            .replace('HH', 'HH')
+            .replace('mm', 'mm')
+            .replace('SS', 'ss')
+            .replace('sss', 'SSS');
+          
+          // Parse with moment.js
+          const momentDate = moment(timestampStr, momentFormat);
+          
+          if (momentDate.isValid()) {
+            timestamp = momentDate.toDate();
+            console.log(`Successfully parsed timestamp: ${timestampStr} to ${timestamp}`);
+          } else {
+            console.log(`Failed to parse timestamp: ${timestampStr} with format: ${momentFormat}`);
+          }
+        } 
+        // Otherwise try to parse with native Date
+        else {
+          timestamp = new Date(timestampStr);
+        }
+        
+        if (!isNaN(timestamp)) {
+          lastTimestamp = timestamp;
+        }
+      }
+      
+      timestamp = timestamp || lastTimestamp || new Date(); // Use previous timestamp if none found
       return { line, timestamp };
     }).filter(log => log.timestamp); // Remove logs without a timestamp
   };
@@ -247,41 +347,156 @@ function App() {
       {showEditor && (
         <div className="modal">
           <h2>Edit Parsing Options</h2>
-          {Object.entries(parsingOptions).map(([pod, pattern]) => (
-            <div key={pod}>
-              <span>{pod}: </span>
+          <p>You can specify:</p>
+          <ul>
+            <li>Just a format string (regex will default to extract text between [ ])</li>
+            <li>Both a regex pattern and format string</li>
+            <li>Just a regex pattern (for backward compatibility)</li>
+          </ul>
+          <p>Format examples: <code>MM/DD/YYYY HH:mm:SS</code> or <code>YYYY-MM-DD HH:mm:SS.sss</code></p>
+          <p><strong>Important:</strong> Enter pod <em>prefixes</em> (not exact pod names). 
+             The longest matching prefix will be used. For example:</p>
+          <ul>
+            <li><code>frontend</code> - Matches all pods starting with "frontend"</li>
+            <li><code>backend</code> - Matches all pods starting with "backend"</li>
+          </ul>
+          
+          {Object.entries(parsingOptions).map(([pod, options]) => {
+            // Handle both old format (string) and new format (object)
+            const isLegacyFormat = typeof options === 'string';
+            const regexValue = isLegacyFormat ? options : (options.regex || '');
+            const formatValue = isLegacyFormat ? '' : (options.format || '');
+            
+            return (
+              <div key={pod} style={{margin: '10px 0', padding: '5px 0', borderBottom: '1px solid #eee'}}>
+                <div><strong>{pod}</strong></div>
+                <div style={{marginTop: '5px'}}>
+                  <label style={{marginRight: '5px'}}>Regex (optional): </label>
+                  <input
+                    value={regexValue}
+                    placeholder="Default: \\[(.*?)\\]"
+                    onChange={e => {
+                      const newValue = e.target.value;
+                      // If we have a format, update the object properties
+                      if (formatValue) {
+                        const newOptions = { 
+                          ...parsingOptions, 
+                          [pod]: { regex: newValue, format: formatValue } 
+                        };
+                        updateParsingOptions(newOptions);
+                      } else {
+                        // Otherwise just update the string
+                        const newOptions = { ...parsingOptions, [pod]: newValue };
+                        updateParsingOptions(newOptions);
+                      }
+                    }}
+                    style={{width: '250px'}}
+                  />
+                </div>
+                <div style={{marginTop: '5px'}}>
+                  <label style={{marginRight: '5px'}}>Format: </label>
+                  <input
+                    value={formatValue}
+                    placeholder="e.g. YYYY-MM-DD HH:mm:SS.sss"
+                    onChange={e => {
+                      const newFormat = e.target.value;
+                      // Create or update the object
+                      const newOptions = { 
+                        ...parsingOptions, 
+                        [pod]: { 
+                          regex: regexValue, 
+                          format: newFormat 
+                        } 
+                      };
+                      updateParsingOptions(newOptions);
+                    }}
+                    style={{width: '250px'}}
+                  />
+                </div>
+                <button 
+                  onClick={() => {
+                    const newOptions = { ...parsingOptions };
+                    delete newOptions[pod];
+                    updateParsingOptions(newOptions);
+                  }}
+                  style={{marginTop: '5px'}}
+                >
+                  Delete
+                </button>
+              </div>
+            );
+          })}
+          
+          <div style={{margin: '15px 0'}}>
+            <h3>Add New Pattern</h3>
+            <div>
+              <label style={{display: 'block', marginBottom: '5px'}}>Pod Prefix:</label>
               <input
-                value={pattern}
-                onChange={e => {
-                  const newOptions = { ...parsingOptions, [pod]: e.target.value };
-                  updateParsingOptions(newOptions);
-                }}
+                placeholder="e.g. frontend, backend"
+                id="newPod"
+                style={{width: '250px'}}
               />
-              <button onClick={() => {
-                const newOptions = { ...parsingOptions };
-                delete newOptions[pod];
-                updateParsingOptions(newOptions);
-              }}>Delete</button>
             </div>
-          ))}
-          <div>
-            <input
-              placeholder="Pod Name"
-              id="newPod"
-            />
-            <input
-              placeholder="Regex Pattern"
-              id="newPattern"
-            />
-            <button onClick={() => {
-              const pod = document.getElementById('newPod').value;
-              const pattern = document.getElementById('newPattern').value;
-              if (pod && pattern) {
-                updateParsingOptions({ ...parsingOptions, [pod]: pattern });
-              }
-            }}>Add</button>
+            <div style={{marginTop: '5px'}}>
+              <label style={{display: 'block', marginBottom: '5px'}}>Regex Pattern (optional):</label>
+              <input
+                placeholder="Default: \\[(.*?)\\]"
+                id="newPattern"
+                style={{width: '250px'}}
+              />
+            </div>
+            <div style={{marginTop: '5px'}}>
+              <label style={{display: 'block', marginBottom: '5px'}}>Format:</label>
+              <input
+                placeholder="e.g. YYYY-MM-DD HH:mm:SS.sss"
+                id="newFormat"
+                style={{width: '250px'}}
+              />
+            </div>
+            <button 
+              onClick={() => {
+                const pod = document.getElementById('newPod').value;
+                const pattern = document.getElementById('newPattern').value;
+                const format = document.getElementById('newFormat').value;
+                
+                if (pod) {
+                  if (format) {
+                    // Create with format
+                    const options = { format };
+                    if (pattern) options.regex = pattern;
+                    updateParsingOptions({ 
+                      ...parsingOptions, 
+                      [pod]: options
+                    });
+                  } else if (pattern) {
+                    // Legacy format (just regex)
+                    updateParsingOptions({ ...parsingOptions, [pod]: pattern });
+                  } else {
+                    // Need at least format or pattern
+                    alert("Please provide either a format or a regex pattern");
+                    return;
+                  }
+                  
+                  // Clear inputs
+                  document.getElementById('newPod').value = '';
+                  document.getElementById('newPattern').value = '';
+                  document.getElementById('newFormat').value = '';
+                } else {
+                  alert("Pod name is required");
+                }
+              }}
+              style={{marginTop: '10px'}}
+            >
+              Add
+            </button>
           </div>
-          <button onClick={() => setShowEditor(false)}>Close</button>
+          
+          <button 
+            onClick={() => setShowEditor(false)}
+            style={{marginTop: '15px'}}
+          >
+            Close
+          </button>
         </div>
       )}
 
