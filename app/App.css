@@ -74,6 +74,23 @@ select:focus, input:focus {
   margin-top: 15px;
 }
 
+.pod-selector-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.select-all-button {
+  background: #3b82f6;
+  padding: 6px 12px;
+  font-size: 0.9em;
+  margin: 0;
+}
+
+.select-all-button:hover {
+  background: #2563eb;
+}
+
 .pods-container {
   display: flex;
   flex-wrap: wrap;
@@ -173,7 +190,7 @@ button:disabled {
 /* Modal for Parsing Options */
 .modal {
   position: fixed;
-  top: 15%;
+  top: 5%;
   left: 50%;
   transform: translateX(-50%);
   background: white;
@@ -183,6 +200,8 @@ button:disabled {
   z-index: 1000;
   width: 90%;
   max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal h2 {

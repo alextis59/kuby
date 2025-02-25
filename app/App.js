@@ -253,13 +253,14 @@ function App() {
     }).filter(log => log.timestamp); // Remove logs without a timestamp
   };
 
-  // Filter logs based on search and time range
+  // Filter logs based on selected pods, search, and time range
   const filteredLogs = logs.filter(log => {
+    const matchesPod = selectedPods.includes(log.podName);
     const matchesSearch = searchString ? log.line.includes(searchString) : true;
     const matchesTime = timeRange.start && timeRange.end
       ? log.timestamp >= new Date(timeRange.start) && log.timestamp <= new Date(timeRange.end)
       : true;
-    return matchesSearch && matchesTime;
+    return matchesPod && matchesSearch && matchesTime;
   });
 
   // Update parsing options
@@ -286,6 +287,20 @@ function App() {
 
         <div className="pod-selector">
           <label>Pods: </label>
+          <div className="pod-selector-actions">
+            <button 
+              className="select-all-button" 
+              onClick={() => setSelectedPods([...pods])}
+              disabled={pods.length === 0}>
+              Select All
+            </button>
+            <button 
+              className="clear-button" 
+              onClick={() => setSelectedPods([])}
+              disabled={selectedPods.length === 0}>
+              Clear All
+            </button>
+          </div>
           <div className="pods-container">
             {pods.map(pod => (
               <div key={pod} className="pod-checkbox">
@@ -313,11 +328,6 @@ function App() {
           <div>
             <span>Selected pods ({selectedPods.length}): </span>
             <span className="pod-list">{selectedPods.join(', ')}</span>
-            <button 
-              className="clear-button" 
-              onClick={() => setSelectedPods([])}>
-              Clear All
-            </button>
           </div>
         ) : (
           <div className="no-pods-selected">No pods selected</div>
