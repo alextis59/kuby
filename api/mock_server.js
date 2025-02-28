@@ -21,11 +21,11 @@ const mockData = {
     'docker-desktop': 'app-staging',
   },
   pods: {
-    'default': ['nginx-548b6c8d64-abcde', 'mysql-74d5c6688d-fghij', 'redis-6b54b7d776-klmno'],
+    'default': ['nginx-548b6c8d64-abcde', 'mysql-74d5c6688d-fghij', 'redis-6b54b7d776-klmno', 'metrics-server-abc12'],
     'kube-system': ['coredns-558bd4d5db-pqrst', 'kube-proxy-uvwxy', 'metrics-server-z1234'],
-    'monitoring': ['prometheus-5d5487f456-56789', 'grafana-6b7b9c8d8-abcde', 'alertmanager-fghij', 'metrics-server-z1234'],
-    'app-production': ['frontend-567f86d547-klmno', 'backend-76c47cfd56-pqrst', 'cache-5d7b8c4d3-uvwxy', 'metrics-server-z1234'],
-    'app-staging': ['frontend-test-12345', 'backend-test-67890', 'cache-test-abcde']
+    'monitoring': ['prometheus-5d5487f456-56789', 'grafana-6b7b9c8d8-abcde', 'alertmanager-fghij', 'metrics-server-mn567'],
+    'app-production': ['frontend-567f86d547-klmno', 'backend-76c47cfd56-pqrst', 'cache-5d7b8c4d3-uvwxy', 'metrics-server-pq890'],
+    'app-staging': ['frontend-test-12345', 'backend-test-67890', 'cache-test-abcde', 'metrics-server-xy345']
   },
   logGenerators: {
     // Function to generate a random timestamp within the last 24 hours with different formats
@@ -58,6 +58,16 @@ const mockData = {
       } else if (podType === 'cache') {
         // Cache format: HH:MM:SS - time only with no date
         return timestamp.toTimeString().split(' ')[0];
+      } else if (podType === 'metrics') {
+        // Metrics format: YYYY/MM/DD HH:MM:SS.sss
+        const year = timestamp.getFullYear();
+        const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+        const day = String(timestamp.getDate()).padStart(2, '0');
+        const hours = String(timestamp.getHours()).padStart(2, '0');
+        const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+        const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+        const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
+        return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
       } else {
         // Default format: ISO 8601 without milliseconds
         return timestamp.toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -94,6 +104,16 @@ const mockData = {
         "Warning: Query rate exceeds 1000 qps",
         "Error: Failed to resolve external domain"
       ],
+      metrics: [
+        "Started scrape of pod api-server",
+        "CPU usage: 23.4%\nMemory usage: 1.8GB\nDisk I/O: 12.3MB/s read, 4.5MB/s write",
+        "Collecting metrics from pod: frontend-app\nFound 32 metrics\nSuccessfully sent to storage",
+        "Warning: High memory utilization detected\nPod: database-0\nUsage: 87.5% of allocated memory\nRecommended action: Increase memory allocation",
+        "Error: Scrape timeout\nPod: cache-service\nTimestamp: 323ms\nScrape canceled",
+        "Pod health check\nStatus: Ready\nRestart count: 0\nLast restart: N/A",
+        "Network metrics collected\nIngress: 45.6MB\nEgress: 32.1MB\nConnections: 128 established",
+        "Alert triggered\nRule: CPUThrottlingHigh\nInstance: worker-pod-23\nValue: 75.5%\nThreshold: 70%"
+      ],
       frontend: [
         "User 1234 logged in",
         "Cart updated for user 5678",
@@ -129,6 +149,8 @@ const mockData = {
         podType = 'backend';
       } else if (podName.startsWith('cache')) {
         podType = 'cache';
+      } else if (podName.startsWith('metrics-server')) {
+        podType = 'metrics';
       } else {
         podType = 'default';
       }
@@ -143,9 +165,38 @@ const mockData = {
     // Generate multiple log entries
     generateLogs: (podName, count = 100) => {
       const logs = [];
-      for (let i = 0; i < count; i++) {
+      let i = 0;
+      
+      while (i < count) {
+        // Add a log with timestamp
         logs.push(mockData.logGenerators.generateLogEntry(podName));
+        i++;
+        
+        // For metrics pods, randomly add additional lines without timestamps
+        if (podName.startsWith('metrics-server') && i < count && Math.random() > 0.7) {
+          // Add 1-3 lines without timestamps about 30% of the time
+          const additionalLines = Math.floor(Math.random() * 3) + 1;
+          const continuationOptions = [
+            "Additional details not available",
+            "See documentation for more information",
+            "Previous operation completed successfully",
+            "Request ID: " + Math.random().toString(36).substring(2, 10).toUpperCase(),
+            "Transaction ID: TXN-" + Math.floor(Math.random() * 10000000),
+            "Correlation ID: " + Math.random().toString(36).substring(2, 15),
+            "Thread pool status: Active=8, Idle=4, Queued=2",
+            "DB connections: Active=12, Idle=5, Max=20",
+            "Resource utilization details follow in debug logs",
+            "Check configuration in /etc/kubernetes/metrics-server.yaml"
+          ];
+          
+          for (let j = 0; j < additionalLines && i < count; j++) {
+            // Add a line without timestamp
+            logs.push(continuationOptions[Math.floor(Math.random() * continuationOptions.length)]);
+            i++;
+          }
+        }
       }
+      
       return logs.join('\n');
     }
   }

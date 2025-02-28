@@ -238,6 +238,7 @@ button:disabled {
 
 .log-line {
   flex-grow: 1;
+  white-space: pre-wrap; /* Preserves newlines and wraps text */
 }
 
 /* Modal for Parsing Options */

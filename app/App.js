@@ -253,13 +253,16 @@ function App() {
       pattern = defaultPattern;
     }
     
-    let lastTimestamp = null;
-    
     // For debugging
     console.log(`Pod: ${podName}, Format: ${formatString}, Pattern: ${pattern}`);
     
-    return lines.map(line => {
-      let timestamp;
+    // Instead of using map/filter, use a loop to process lines and handle merging
+    const parsedLogs = [];
+    let lastLogWithTimestamp = null;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      let timestamp = null;
       
       // Try to match the pattern in the line
       const match = line.match(pattern);
@@ -305,41 +308,44 @@ function App() {
         else {
           timestamp = new Date(timestampStr);
         }
+      }
+      
+      // If there's a valid timestamp, create a new log entry
+      if (timestamp && !isNaN(timestamp)) {
+        // Precompute shared time components
+        const year = timestamp.getFullYear();
+        const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+        const day = String(timestamp.getDate()).padStart(2, '0');
+        const hours = String(timestamp.getHours()).padStart(2, '0');
+        const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+        const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+        const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
         
-        if (!isNaN(timestamp)) {
-          lastTimestamp = timestamp;
-        }
+        // Full timestamp with date in 24h format
+        const fullDisplayString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+        
+        // Precompute shorter timestamp display without day/month/year
+        const shortDisplayString = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+        
+        const logEntry = { 
+          line, 
+          timestamp,
+          fullDisplayString, 
+          shortDisplayString
+        };
+        
+        parsedLogs.push(logEntry);
+        lastLogWithTimestamp = logEntry;
+      } 
+      // If there's no timestamp but there was a previous line with timestamp, merge them
+      else if (lastLogWithTimestamp) {
+        // Append the current line to the last log entry with a line break
+        lastLogWithTimestamp.line += '\n' + line;
       }
-      
-      timestamp = timestamp || lastTimestamp; // Use previous timestamp if none found, don't use current date
-      
-      // Skip this log line if no timestamp could be determined
-      if (!timestamp) {
-        return null;
-      }
-      
-      // Precompute shared time components
-      const year = timestamp.getFullYear();
-      const month = String(timestamp.getMonth() + 1).padStart(2, '0');
-      const day = String(timestamp.getDate()).padStart(2, '0');
-      const hours = String(timestamp.getHours()).padStart(2, '0');
-      const minutes = String(timestamp.getMinutes()).padStart(2, '0');
-      const seconds = String(timestamp.getSeconds()).padStart(2, '0');
-      const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
-      
-      // Full timestamp with date in 24h format
-      const fullDisplayString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
-      
-      // Precompute shorter timestamp display without day/month/year
-      const shortDisplayString = `${hours}:${minutes}:${seconds}.${milliseconds}`;
-      
-      return { 
-        line, 
-        timestamp,
-        fullDisplayString, 
-        shortDisplayString
-      };
-    }).filter(log => log !== null); // Remove null log entries (those without timestamps)
+      // If there's no timestamp and no previous line with timestamp, skip this line
+    }
+    
+    return parsedLogs;
   };
 
   // Filter logs based on selected pods, search, and time range
