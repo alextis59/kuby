@@ -21,6 +21,7 @@ function App() {
   const [pods, setPods] = React.useState([]);
   const [podDisplayNames, setPodDisplayNames] = React.useState({}); // Mapping of full pod names to display names
   const [selectedPods, setSelectedPods] = React.useState([]);
+  const [podSearchFilter, setPodSearchFilter] = React.useState(''); // New state for pod search filter
   const [logOption, setLogOption] = React.useState('complete'); // 'complete' or 'tail'
   const [tailLines, setTailLines] = React.useState(50);
   const [logs, setLogs] = React.useState([]);
@@ -358,24 +359,33 @@ function App() {
                   Clear All
                 </button>
               </div>
+              <input
+                type="text"
+                placeholder="Filter pods..."
+                value={podSearchFilter}
+                onChange={e => setPodSearchFilter(e.target.value)}
+                className="pod-filter"
+              />
               <div className="pods-container">
-                {pods.map(pod => (
-                  <div key={pod} className="pod-checkbox">
-                    <input
-                      type="checkbox"
-                      id={`pod-${pod}`}
-                      checked={selectedPods.includes(pod)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedPods([...selectedPods, pod]);
-                        } else {
-                          setSelectedPods(selectedPods.filter(p => p !== pod));
-                        }
-                      }}
-                    />
-                    <label htmlFor={`pod-${pod}`}>{podDisplayNames[pod] || pod}</label>
-                  </div>
-                ))}
+                {pods
+                  .filter(pod => pod.toLowerCase().includes(podSearchFilter.toLowerCase()))
+                  .map(pod => (
+                    <div key={pod} className="pod-checkbox">
+                      <input
+                        type="checkbox"
+                        id={`pod-${pod}`}
+                        checked={selectedPods.includes(pod)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPods([...selectedPods, pod]);
+                          } else {
+                            setSelectedPods(selectedPods.filter(p => p !== pod));
+                          }
+                        }}
+                      />
+                      <label htmlFor={`pod-${pod}`}>{podDisplayNames[pod] || pod}</label>
+                    </div>
+                  ))}
               </div>
             </div>
           </div>

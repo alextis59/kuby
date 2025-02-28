@@ -23,8 +23,8 @@ const mockData = {
   pods: {
     'default': ['nginx-548b6c8d64-abcde', 'mysql-74d5c6688d-fghij', 'redis-6b54b7d776-klmno'],
     'kube-system': ['coredns-558bd4d5db-pqrst', 'kube-proxy-uvwxy', 'metrics-server-z1234'],
-    'monitoring': ['prometheus-5d5487f456-56789', 'grafana-6b7b9c8d8-abcde', 'alertmanager-fghij'],
-    'app-production': ['frontend-567f86d547-klmno', 'backend-76c47cfd56-pqrst', 'cache-5d7b8c4d3-uvwxy'],
+    'monitoring': ['prometheus-5d5487f456-56789', 'grafana-6b7b9c8d8-abcde', 'alertmanager-fghij', 'metrics-server-z1234'],
+    'app-production': ['frontend-567f86d547-klmno', 'backend-76c47cfd56-pqrst', 'cache-5d7b8c4d3-uvwxy', 'metrics-server-z1234'],
     'app-staging': ['frontend-test-12345', 'backend-test-67890', 'cache-test-abcde']
   },
   logGenerators: {

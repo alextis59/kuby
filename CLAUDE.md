@@ -29,4 +29,4 @@
 
 ## Additional instructions
 
-- No need to start the server or mock, it is already running
+- Don't try to run npm commands
