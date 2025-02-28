@@ -13,6 +13,25 @@ function truncatePodName(podName) {
   return podName.replace(/-[a-z0-9]+$/, '');
 }
 
+// Function to generate a consistent color from a pod name
+function generatePodColor(podName) {
+  // Use the truncated pod name to ensure all pods of the same type get the same color
+  const baseNameForColor = truncatePodName(podName);
+  
+  // Simple hash function to convert string to number
+  let hash = 0;
+  for (let i = 0; i < baseNameForColor.length; i++) {
+    hash = baseNameForColor.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Generate HSL color with good saturation and lightness for readability
+  const h = Math.abs(hash % 360); // Hue: 0-359
+  const s = 65 + (hash % 20); // Saturation: 65-85%
+  const l = 45 + (hash % 15); // Lightness: 45-60%
+  
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
 function App() {
   // State variables
   const [contexts, setContexts] = React.useState({});
@@ -20,6 +39,7 @@ function App() {
   const [selectedNamespace, setSelectedNamespace] = React.useState('');
   const [pods, setPods] = React.useState([]);
   const [podDisplayNames, setPodDisplayNames] = React.useState({}); // Mapping of full pod names to display names
+  const [podColors, setPodColors] = React.useState({}); // Mapping of pod names to colors
   const [selectedPods, setSelectedPods] = React.useState([]);
   const [podSearchFilter, setPodSearchFilter] = React.useState(''); // New state for pod search filter
   const [logOption, setLogOption] = React.useState('complete'); // 'complete' or 'tail'
@@ -103,10 +123,17 @@ function App() {
       
       // Create mapping of full pod names to truncated display names
       const displayNameMap = {};
+      // Create mapping of pod names to colors
+      const colorMap = {};
+      
       data.forEach(pod => {
         displayNameMap[pod] = truncatePodName(truncatePodName(pod));
+        // Generate a color for each pod
+        colorMap[pod] = generatePodColor(pod);
       });
+      
       setPodDisplayNames(displayNameMap);
+      setPodColors(colorMap);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -462,6 +489,10 @@ function App() {
                           }
                         }}
                       />
+                      <div 
+                        className="pod-color-indicator" 
+                        style={{ backgroundColor: podColors[pod] || '#ccc' }}
+                      ></div>
                       <label htmlFor={`pod-${pod}`}>{podDisplayNames[pod] || pod}</label>
                     </div>
                   ))}
@@ -528,7 +559,15 @@ function App() {
                   <span className="log-timestamp">
                     {isSameDay ? log.shortDisplayString : log.fullDisplayString}
                   </span>
-                  <span className="log-pod">[{podDisplayNames[log.podName] || log.podName}]</span>
+                  <span 
+                    className="log-pod"
+                    style={{ 
+                      backgroundColor: podColors[log.podName] || '#e5e7eb',
+                      color: '#ffffff' 
+                    }}
+                  >
+                    [{podDisplayNames[log.podName] || log.podName}]
+                  </span>
                   <span className="log-line">{log.line}</span>
                 </li>
               ))}
