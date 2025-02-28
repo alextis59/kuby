@@ -45,6 +45,8 @@ function App() {
   const [logOption, setLogOption] = React.useState('complete'); // 'complete' or 'tail'
   const [tailLines, setTailLines] = React.useState(50);
   const [logs, setLogs] = React.useState([]);
+  const [podsWithLogs, setPodsWithLogs] = React.useState([]); // Pods for which logs were successfully loaded
+  const [podsWithErrors, setPodsWithErrors] = React.useState([]); // Pods with parsing errors
   const [searchString, setSearchString] = React.useState('');
   const [timeRange, setTimeRange] = React.useState({ start: '', end: '' });
   const [parsingOptions, setParsingOptions] = React.useState({});
@@ -300,8 +302,14 @@ function App() {
     }
     setLoading(true);
     setLogs([]);
+    // Reset the state of pods with logs and errors
+    setPodsWithLogs([]);
+    setPodsWithErrors([]);
+    
     try {
       const allLogs = [];
+      const successfulPods = [];
+      const errorPods = [];
       
       // Fetch logs for each selected pod sequentially
       for (const pod of selectedPods) {
@@ -318,6 +326,9 @@ function App() {
           const logsText = await response.text();
           const parsedLogs = parseLogs(logsText, pod, parsingOptions);
           
+          // Check if there were any parsing errors for this pod
+          const hasParsingErrors = parsedLogs.some(log => log.hasParsingError);
+          
           // Add pod name to each log entry
           const logsWithPodName = parsedLogs.map(log => ({
             ...log,
@@ -326,13 +337,25 @@ function App() {
           
           allLogs.push(...logsWithPodName);
           
+          // Track pod status
+          successfulPods.push(pod);
+          if (hasParsingErrors) {
+            errorPods.push(pod);
+          }
+          
           // Show success toast for each pod
           showToast(`Successfully fetched logs for ${pod}`, 'success');
         } catch (podError) {
+          // Add to error pods
+          errorPods.push(pod);
           // Show error toast for individual pod failures but continue with other pods
           showToast(`Error fetching logs for ${pod}: ${podError.message}`, 'error');
         }
       }
+      
+      // Update state with pods that have logs and errors
+      setPodsWithLogs(successfulPods);
+      setPodsWithErrors(errorPods);
       
       // Sort all logs by timestamp
       const sortedLogs = allLogs.sort((a, b) => a.timestamp - b.timestamp);
@@ -437,6 +460,7 @@ function App() {
     // Instead of using map/filter, use a loop to process lines and handle merging
     const parsedLogs = [];
     let lastLogWithTimestamp = null;
+    let hasParsingErrors = false;
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -480,12 +504,19 @@ function App() {
             console.log(`Successfully parsed timestamp: ${timestampStr} to ${timestamp}`);
           } else {
             console.log(`Failed to parse timestamp: ${timestampStr} with format: ${momentFormat}`);
+            hasParsingErrors = true;
           }
         } 
         // Otherwise try to parse with native Date
         else {
           timestamp = new Date(timestampStr);
+          if (isNaN(timestamp)) {
+            hasParsingErrors = true;
+          }
         }
+      } else if (i === 0) {
+        // If the first line doesn't match our pattern, consider it a parsing error
+        hasParsingErrors = true;
       }
       
       // If there's a valid timestamp, create a new log entry
@@ -509,7 +540,8 @@ function App() {
           line, 
           timestamp,
           fullDisplayString, 
-          shortDisplayString
+          shortDisplayString,
+          hasParsingError: false
         };
         
         parsedLogs.push(logEntry);
@@ -520,8 +552,37 @@ function App() {
         // Append the current line to the last log entry with a line break
         lastLogWithTimestamp.line += '\n' + line;
       }
-      // If there's no timestamp and no previous line with timestamp, skip this line
+      // If there's no timestamp and no previous line with timestamp, add with current time
+      else {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+        
+        const fullDisplayString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+        const shortDisplayString = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+        
+        const logEntry = {
+          line,
+          timestamp: now,
+          fullDisplayString,
+          shortDisplayString,
+          hasParsingError: true
+        };
+        
+        parsedLogs.push(logEntry);
+        hasParsingErrors = true;
+      }
     }
+    
+    // Tag all logs from this pod with the parsing error status
+    parsedLogs.forEach(log => {
+      log.hasParsingError = log.hasParsingError || hasParsingErrors;
+    });
     
     return parsedLogs;
   };
@@ -646,6 +707,29 @@ function App() {
                         style={{ backgroundColor: podColors[pod] || '#ccc' }}
                       ></div>
                       <label htmlFor={`pod-${pod}`}>{podDisplayNames[pod] || pod}</label>
+                      
+                      {/* Status icons */}
+                      <div className="pod-status-icons">
+                        {/* Icon for pods with loaded logs */}
+                        {podsWithLogs.includes(pod) && (
+                          <div 
+                            className="pod-status-icon pod-loaded-icon" 
+                            title="Logs loaded successfully"
+                          >
+                            ✓
+                          </div>
+                        )}
+                        
+                        {/* Icon for pods with parsing errors */}
+                        {podsWithErrors.includes(pod) && (
+                          <div 
+                            className="pod-status-icon pod-error-icon" 
+                            title="Parsing errors detected"
+                          >
+                            !
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
               </div>
