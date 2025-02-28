@@ -6,12 +6,20 @@ const moment = window.moment || require('moment');
 // Set the base URL to point to the API server
 const BASE_URL = 'http://localhost:3000';
 
+// Function to truncate pod name by removing the ID at the end
+function truncatePodName(podName) {
+  // Match pod name pattern up to the last dash followed by a hash/ID
+  // Common pattern: name-deployment-hash or name-statefulset-ordinal
+  return podName.replace(/-[a-z0-9]+$/, '');
+}
+
 function App() {
   // State variables
   const [contexts, setContexts] = React.useState({});
   const [selectedContext, setSelectedContext] = React.useState('');
   const [selectedNamespace, setSelectedNamespace] = React.useState('');
   const [pods, setPods] = React.useState([]);
+  const [podDisplayNames, setPodDisplayNames] = React.useState({}); // Mapping of full pod names to display names
   const [selectedPods, setSelectedPods] = React.useState([]);
   const [logOption, setLogOption] = React.useState('complete'); // 'complete' or 'tail'
   const [tailLines, setTailLines] = React.useState(50);
@@ -90,6 +98,13 @@ function App() {
       if (!response.ok) throw new Error('Failed to fetch pods');
       const data = await response.json();
       setPods(data);
+      
+      // Create mapping of full pod names to truncated display names
+      const displayNameMap = {};
+      data.forEach(pod => {
+        displayNameMap[pod] = truncatePodName(truncatePodName(pod));
+      });
+      setPodDisplayNames(displayNameMap);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -358,7 +373,7 @@ function App() {
                         }
                       }}
                     />
-                    <label htmlFor={`pod-${pod}`}>{pod}</label>
+                    <label htmlFor={`pod-${pod}`}>{podDisplayNames[pod] || pod}</label>
                   </div>
                 ))}
               </div>
@@ -422,7 +437,7 @@ function App() {
               {filteredLogs.map((log, index) => (
                 <li key={index}>
                   <span className="log-timestamp">{log.timestamp.toLocaleString()}</span>
-                  <span className="log-pod">[{log.podName}]</span>
+                  <span className="log-pod">[{podDisplayNames[log.podName] || log.podName}]</span>
                   <span className="log-line">{log.line}</span>
                 </li>
               ))}
