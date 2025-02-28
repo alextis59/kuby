@@ -311,7 +311,12 @@ function App() {
         }
       }
       
-      timestamp = timestamp || lastTimestamp || new Date(); // Use previous timestamp if none found
+      timestamp = timestamp || lastTimestamp; // Use previous timestamp if none found, don't use current date
+      
+      // Skip this log line if no timestamp could be determined
+      if (!timestamp) {
+        return null;
+      }
       
       // Precompute shared time components
       const year = timestamp.getFullYear();
@@ -334,7 +339,7 @@ function App() {
         fullDisplayString, 
         shortDisplayString
       };
-    }).filter(log => log.timestamp); // Remove logs without a timestamp
+    }).filter(log => log !== null); // Remove null log entries (those without timestamps)
   };
 
   // Filter logs based on selected pods, search, and time range
