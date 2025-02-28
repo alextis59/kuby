@@ -284,6 +284,17 @@ function App() {
           const momentDate = moment(timestampStr, momentFormat);
           
           if (momentDate.isValid()) {
+            // Check if the format doesn't include year, month, or day components
+            // If it only has time components, set the date to today
+            const hasDateComponents = /YYYY|YY|MM|DD/.test(formatString);
+            if (!hasDateComponents) {
+              // Get today's date components
+              const today = new Date();
+              momentDate.year(today.getFullYear());
+              momentDate.month(today.getMonth());
+              momentDate.date(today.getDate());
+            }
+            
             timestamp = momentDate.toDate();
             console.log(`Successfully parsed timestamp: ${timestampStr} to ${timestamp}`);
           } else {

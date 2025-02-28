@@ -55,6 +55,9 @@ const mockData = {
       } else if (podType === 'backend') {
         // Backend format: YYYY-MM-DD HH:MM:SS.sss
         return timestamp.toISOString().replace('T', ' ').replace('Z', '');
+      } else if (podType === 'cache') {
+        // Cache format: HH:MM:SS - time only with no date
+        return timestamp.toTimeString().split(' ')[0];
       } else {
         // Default format: ISO 8601 without milliseconds
         return timestamp.toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -104,17 +107,28 @@ const mockData = {
         "Cache hit ratio: 0.85",
         "Warning: Rate limit about to be reached for user 1234",
         "Error: Unable to connect to third-party service"
+      ],
+      cache: [
+        "Cache hit for key: user_profile_1234",
+        "Cache miss for key: product_5678",
+        "Evicting least recently used items",
+        "Cache invalidation triggered for prefix: user_*",
+        "Memory usage: 75% of allocated",
+        "Warning: High eviction rate detected",
+        "Error: Failed to connect to Redis backend"
       ]
     },
     
     // Generate a single log entry
     generateLogEntry: (podName) => {
-      // Simplify type determination by just checking if it starts with frontend/backend
+      // Determine pod type based on pod name prefix
       let podType;
       if (podName.startsWith('frontend')) {
         podType = 'frontend';
       } else if (podName.startsWith('backend')) {
         podType = 'backend';
+      } else if (podName.startsWith('cache')) {
+        podType = 'cache';
       } else {
         podType = 'default';
       }
