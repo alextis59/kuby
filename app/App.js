@@ -301,7 +301,28 @@ function App() {
       }
       
       timestamp = timestamp || lastTimestamp || new Date(); // Use previous timestamp if none found
-      return { line, timestamp };
+      
+      // Precompute shared time components
+      const year = timestamp.getFullYear();
+      const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+      const day = String(timestamp.getDate()).padStart(2, '0');
+      const hours = String(timestamp.getHours()).padStart(2, '0');
+      const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+      const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+      const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
+      
+      // Full timestamp with date in 24h format
+      const fullDisplayString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+      
+      // Precompute shorter timestamp display without day/month/year
+      const shortDisplayString = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+      
+      return { 
+        line, 
+        timestamp,
+        fullDisplayString, 
+        shortDisplayString
+      };
     }).filter(log => log.timestamp); // Remove logs without a timestamp
   };
 
@@ -325,6 +346,16 @@ function App() {
     
     return matchesPod && matchesSearch && matchesTime;
   });
+  
+  // Check if both start and end dates are in the same day
+  let isSameDay = false;
+  if (timeRange.start && timeRange.end) {
+    const startDate = new Date(timeRange.start);
+    const endDate = new Date(timeRange.end);
+    isSameDay = startDate.getFullYear() === endDate.getFullYear() &&
+                startDate.getMonth() === endDate.getMonth() &&
+                startDate.getDate() === endDate.getDate();
+  }
 
   // Toast management functions
   const showToast = (message, type) => {
@@ -472,7 +503,9 @@ function App() {
             <ul>
               {filteredLogs.map((log, index) => (
                 <li key={index}>
-                  <span className="log-timestamp">{log.timestamp.toLocaleString()}</span>
+                  <span className="log-timestamp">
+                    {isSameDay ? log.shortDisplayString : log.fullDisplayString}
+                  </span>
                   <span className="log-pod">[{podDisplayNames[log.podName] || log.podName}]</span>
                   <span className="log-line">{log.line}</span>
                 </li>
