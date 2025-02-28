@@ -31,6 +31,7 @@ function App() {
   const [showEditor, setShowEditor] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [toasts, setToasts] = React.useState([]);
 
   // Load parsing options from localStorage on mount
   React.useEffect(() => {
@@ -116,6 +117,7 @@ function App() {
   const fetchLogs = async () => {
     if (!selectedNamespace || selectedPods.length === 0) {
       setError('Please select a namespace and at least one pod');
+      showToast('Please select a namespace and at least one pod', 'error');
       return;
     }
     setLoading(true);
@@ -129,19 +131,29 @@ function App() {
           ? `${BASE_URL}/logs/${selectedNamespace}/${pod}`
           : `${BASE_URL}/logs/${selectedNamespace}/${pod}?tail=${tailLines}`;
           
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch logs for pod ${pod}`);
-        
-        const logsText = await response.text();
-        const parsedLogs = parseLogs(logsText, pod, parsingOptions);
-        
-        // Add pod name to each log entry
-        const logsWithPodName = parsedLogs.map(log => ({
-          ...log,
-          podName: pod
-        }));
-        
-        allLogs.push(...logsWithPodName);
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch logs for pod ${pod}`);
+          }
+          
+          const logsText = await response.text();
+          const parsedLogs = parseLogs(logsText, pod, parsingOptions);
+          
+          // Add pod name to each log entry
+          const logsWithPodName = parsedLogs.map(log => ({
+            ...log,
+            podName: pod
+          }));
+          
+          allLogs.push(...logsWithPodName);
+          
+          // Show success toast for each pod
+          showToast(`Successfully fetched logs for ${pod}`, 'success');
+        } catch (podError) {
+          // Show error toast for individual pod failures but continue with other pods
+          showToast(`Error fetching logs for ${pod}: ${podError.message}`, 'error');
+        }
       }
       
       // Sort all logs by timestamp
@@ -174,6 +186,8 @@ function App() {
       }
     } catch (err) {
       setError(err.message);
+      showToast(`Error: ${err.message}`, 'error');
+      setLogs([]); // Set logs to empty on error as requested in the task
     } finally {
       setLoading(false);
     }
@@ -312,6 +326,24 @@ function App() {
     return matchesPod && matchesSearch && matchesTime;
   });
 
+  // Toast management functions
+  const showToast = (message, type) => {
+    const id = Date.now(); // unique id for this toast
+    const newToast = { id, message, type };
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto-remove toast after 3 seconds
+    setTimeout(() => {
+      removeToast(id);
+    }, 3000);
+    
+    return id;
+  };
+  
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+  
   // Update parsing options
   const updateParsingOptions = (newOptions) => {
     setParsingOptions(newOptions);
@@ -657,6 +689,21 @@ function App() {
           </button>
         </div>
       )}
+      
+      {/* Toast notifications container */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <div key={toast.id} className={`toast toast-${toast.type}`}>
+            <div className="toast-content">{toast.message}</div>
+            <button 
+              className="toast-close" 
+              onClick={() => removeToast(toast.id)}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
