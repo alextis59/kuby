@@ -464,6 +464,97 @@ function App() {
             <li><code>backend</code> - Matches all pods starting with "backend"</li>
           </ul>
           
+          <div style={{marginBottom: '15px'}}>
+            <button 
+              onClick={() => {
+                // Convert parsingOptions to array format for export
+                const optionsArray = Object.entries(parsingOptions).map(([prefix, options]) => {
+                  // Handle both old format (string) and new format (object)
+                  const isLegacyFormat = typeof options === 'string';
+                  const format = isLegacyFormat ? '' : (options.format || '');
+                  
+                  return {
+                    prefix,
+                    format
+                  };
+                }).filter(option => option.format); // Only include entries with a format
+                
+                // Create a JSON string for download
+                const jsonString = JSON.stringify(optionsArray, null, 4);
+                
+                // Create a blob with the JSON data
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                // Create a temporary link and trigger download
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'parsing-options.json';
+                document.body.appendChild(link);
+                link.click();
+                
+                // Clean up
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              style={{marginRight: '10px'}}
+            >
+              Export Options
+            </button>
+            <input
+              type="file"
+              id="importFile"
+              style={{display: 'none'}}
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    try {
+                      // Parse the imported JSON
+                      const importedOptions = JSON.parse(event.target.result);
+                      
+                      // Validate the format
+                      if (!Array.isArray(importedOptions)) {
+                        throw new Error('Imported file must contain an array');
+                      }
+                      
+                      // Convert array format to the object format used by the app
+                      const newOptions = {};
+                      importedOptions.forEach(option => {
+                        if (!option.prefix || !option.format) {
+                          throw new Error('Each entry must have prefix and format properties');
+                        }
+                        
+                        newOptions[option.prefix] = {
+                          format: option.format
+                        };
+                      });
+                      
+                      // Update options and save to localStorage
+                      updateParsingOptions(newOptions);
+                      alert('Parsing options imported successfully!');
+                    } catch (error) {
+                      alert(`Error importing options: ${error.message}`);
+                    }
+                    
+                    // Clear the file input
+                    e.target.value = '';
+                  };
+                  reader.readAsText(file);
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                document.getElementById('importFile').click();
+              }}
+            >
+              Import Options
+            </button>
+          </div>
+          
           {Object.entries(parsingOptions).map(([pod, options]) => {
             // Handle both old format (string) and new format (object)
             const isLegacyFormat = typeof options === 'string';
