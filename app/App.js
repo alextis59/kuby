@@ -193,7 +193,7 @@ function App() {
         }
         
         // Create a pattern that searches for this timestamp format within brackets
-        pattern = new RegExp(`\\[(${regexFromFormat})\\]`);
+        pattern = new RegExp(`(${regexFromFormat})`);
       }
     } 
     // Otherwise use default
