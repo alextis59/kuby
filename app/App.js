@@ -52,6 +52,12 @@ function App() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [toasts, setToasts] = React.useState([]);
+  // New state for toolbar width
+  const [toolbarWidth, setToolbarWidth] = React.useState(() => {
+    // Try to load from localStorage or use default 280px
+    const savedWidth = localStorage.getItem('toolbarWidth');
+    return savedWidth ? parseInt(savedWidth, 10) : 280;
+  });
 
   // Load parsing options from localStorage on mount
   React.useEffect(() => {
@@ -60,6 +66,151 @@ function App() {
       setParsingOptions(JSON.parse(stored));
     }
   }, []);
+  
+  // Reference to toolbar element
+  const toolbarRef = React.useRef(null);
+  const resizeHandleRef = React.useRef(null);
+  const isResizingRef = React.useRef(false);
+  const startXRef = React.useRef(0);
+  const startWidthRef = React.useRef(0);
+
+  // Set up custom resize functionality
+  React.useEffect(() => {
+    const toolbar = toolbarRef.current;
+    const resizeHandle = resizeHandleRef.current;
+    if (!toolbar || !resizeHandle) return;
+    
+    // Set the initial width from state
+    toolbar.style.width = `${toolbarWidth}px`;
+    
+    // Mouse down handler to start resizing
+    const handleMouseDown = (e) => {
+      isResizingRef.current = true;
+      startXRef.current = e.clientX;
+      startWidthRef.current = toolbar.getBoundingClientRect().width;
+      resizeHandle.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none'; // Prevent text selection during resize
+      
+      // Prevent default to avoid text selection
+      e.preventDefault();
+    };
+    
+    // Mouse move handler during resize
+    const handleMouseMove = (e) => {
+      if (!isResizingRef.current) return;
+      
+      // Calculate new width based on mouse movement
+      const deltaX = e.clientX - startXRef.current;
+      const newWidth = Math.max(200, Math.min(600, startWidthRef.current + deltaX));
+      
+      // Update toolbar width
+      toolbar.style.width = `${newWidth}px`;
+    };
+    
+    // Mouse up handler to end resizing
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        resizeHandle.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        
+        // Save the new width to state and localStorage
+        const newWidth = toolbar.getBoundingClientRect().width;
+        setToolbarWidth(newWidth);
+        localStorage.setItem('toolbarWidth', newWidth.toString());
+      }
+    };
+    
+    // Touch start handler (for mobile)
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        isResizingRef.current = true;
+        startXRef.current = e.touches[0].clientX;
+        startWidthRef.current = toolbar.getBoundingClientRect().width;
+        resizeHandle.classList.add('active');
+        document.body.style.userSelect = 'none';
+        
+        e.preventDefault();
+      }
+    };
+    
+    // Touch move handler (for mobile)
+    const handleTouchMove = (e) => {
+      if (!isResizingRef.current || e.touches.length !== 1) return;
+      
+      const deltaX = e.touches[0].clientX - startXRef.current;
+      const newWidth = Math.max(200, Math.min(600, startWidthRef.current + deltaX));
+      
+      toolbar.style.width = `${newWidth}px`;
+      e.preventDefault();
+    };
+    
+    // Touch end handler (for mobile)
+    const handleTouchEnd = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        resizeHandle.classList.remove('active');
+        document.body.style.userSelect = '';
+        
+        const newWidth = toolbar.getBoundingClientRect().width;
+        setToolbarWidth(newWidth);
+        localStorage.setItem('toolbarWidth', newWidth.toString());
+      }
+    };
+    
+    // Add event listeners for mouse
+    resizeHandle.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Add event listeners for touch
+    resizeHandle.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    
+    // Clean up event listeners
+    return () => {
+      // Remove mouse event listeners
+      resizeHandle.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      
+      // Remove touch event listeners
+      resizeHandle.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [toolbarWidth]);
+  
+  // Also set up ResizeObserver as fallback for browser resize functionality
+  React.useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+    
+    // Create a ResizeObserver to watch for width changes via browser resize
+    const resizeObserver = new ResizeObserver(entries => {
+      if (isResizingRef.current) return; // Skip if we're manually resizing
+      
+      for (let entry of entries) {
+        const newWidth = entry.contentRect.width;
+        // Only update if width actually changed (prevents infinite loops)
+        if (Math.abs(newWidth - toolbarWidth) > 1) { // 1px tolerance for rounding errors
+          setToolbarWidth(newWidth);
+          localStorage.setItem('toolbarWidth', newWidth.toString());
+        }
+      }
+    });
+    
+    // Start observing the toolbar element
+    resizeObserver.observe(toolbar);
+    
+    // Clean up observer on component unmount
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [toolbarWidth]);
 
   // Fetch contexts on mount
   React.useEffect(() => {
@@ -436,7 +587,8 @@ function App() {
       
       <div className="main-container">
         {/* Left toolbar with all controls */}
-        <div className="toolbar">
+        <div className="toolbar" ref={toolbarRef} style={{ width: `${toolbarWidth}px` }}>
+          <div className="resize-handle" ref={resizeHandleRef} title="Drag to resize toolbar"></div>
           <div className="selectors">
             <label>Context: </label>
             <select value={selectedContext} onChange={e => {
