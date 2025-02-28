@@ -83,6 +83,7 @@ function App() {
     if (!toolbar || !resizeHandle) return;
     
     // Set the initial width from state
+    console.log(toolbarWidth);
     toolbar.style.width = `${toolbarWidth}px`;
     
     // Mouse down handler to start resizing
@@ -183,34 +184,6 @@ function App() {
       resizeHandle.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [toolbarWidth]);
-  
-  // Also set up ResizeObserver as fallback for browser resize functionality
-  React.useEffect(() => {
-    const toolbar = toolbarRef.current;
-    if (!toolbar) return;
-    
-    // Create a ResizeObserver to watch for width changes via browser resize
-    const resizeObserver = new ResizeObserver(entries => {
-      if (isResizingRef.current) return; // Skip if we're manually resizing
-      
-      for (let entry of entries) {
-        const newWidth = entry.contentRect.width;
-        // Only update if width actually changed (prevents infinite loops)
-        if (Math.abs(newWidth - toolbarWidth) > 1) { // 1px tolerance for rounding errors
-          setToolbarWidth(newWidth);
-          localStorage.setItem('toolbarWidth', newWidth.toString());
-        }
-      }
-    });
-    
-    // Start observing the toolbar element
-    resizeObserver.observe(toolbar);
-    
-    // Clean up observer on component unmount
-    return () => {
-      resizeObserver.disconnect();
     };
   }, [toolbarWidth]);
 
