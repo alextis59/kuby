@@ -139,17 +139,22 @@ function App() {
         const maxTimestamp = sortedLogs[sortedLogs.length - 1].timestamp;
         
         // Format timestamps for datetime-local input (YYYY-MM-DDThh:mm)
+        // Using local timezone adjustment to prevent UTC conversion issues
         const formatDateForInput = (date) => {
-          return date.toISOString().slice(0, 16);
+          const pad = (num) => num.toString().padStart(2, '0');
+          const year = date.getFullYear();
+          const month = pad(date.getMonth() + 1); // getMonth() is 0-indexed
+          const day = pad(date.getDate());
+          const hours = pad(date.getHours());
+          const minutes = pad(date.getMinutes());
+          
+          return `${year}-${month}-${day}T${hours}:${minutes}`;
         };
         
-        // Auto-update time range with min and max timestamps only if empty
-        if (!timeRange.start && !timeRange.end) {
-          setTimeRange({
-            start: formatDateForInput(minTimestamp),
-            end: formatDateForInput(maxTimestamp)
-          });
-        }
+        setTimeRange({
+          start: formatDateForInput(minTimestamp),
+          end: formatDateForInput(maxTimestamp)
+        });
       }
     } catch (err) {
       setError(err.message);
@@ -280,9 +285,20 @@ function App() {
   const filteredLogs = logs.filter(log => {
     const matchesPod = selectedPods.includes(log.podName);
     const matchesSearch = searchString ? log.line.includes(searchString) : true;
-    const matchesTime = timeRange.start && timeRange.end
-      ? log.timestamp >= new Date(timeRange.start) && log.timestamp <= new Date(timeRange.end)
-      : true;
+    
+    // Time range filtering with proper handling of datetime-local values
+    const matchesTime = timeRange.start && timeRange.end ? (() => {
+      // Create Date objects from the time range inputs (these will use local timezone)
+      const startDate = new Date(timeRange.start);
+      const endDate = new Date(timeRange.end);
+      
+      // Adjust end date to include the full minute (add 59 seconds, 999ms)
+      endDate.setSeconds(59);
+      endDate.setMilliseconds(999);
+      
+      return log.timestamp >= startDate && log.timestamp <= endDate;
+    })() : true;
+    
     return matchesPod && matchesSearch && matchesTime;
   });
 
