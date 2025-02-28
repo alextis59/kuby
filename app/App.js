@@ -8,7 +8,8 @@ const BASE_URL = 'http://localhost:3000';
 
 function App() {
   // State variables
-  const [namespaces, setNamespaces] = React.useState([]);
+  const [contexts, setContexts] = React.useState({});
+  const [selectedContext, setSelectedContext] = React.useState('');
   const [selectedNamespace, setSelectedNamespace] = React.useState('');
   const [pods, setPods] = React.useState([]);
   const [selectedPods, setSelectedPods] = React.useState([]);
@@ -30,10 +31,22 @@ function App() {
     }
   }, []);
 
-  // Fetch namespaces on mount
+  // Fetch contexts on mount
   React.useEffect(() => {
-    fetchNamespaces();
+    fetchContexts();
   }, []);
+
+  // When context is selected, update the namespace and set the context
+  React.useEffect(() => {
+    if (selectedContext) {
+      setSelectedNamespace(contexts[selectedContext]);
+      setContext(selectedContext);
+    } else {
+      setSelectedNamespace('');
+      setPods([]);
+      setSelectedPods([]);
+    }
+  }, [selectedContext]);
 
   // Fetch pods when namespace changes
   React.useEffect(() => {
@@ -46,17 +59,27 @@ function App() {
   }, [selectedNamespace]);
 
   // Fetch functions
-  const fetchNamespaces = async () => {
+  const fetchContexts = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/namespaces`);
-      if (!response.ok) throw new Error('Failed to fetch namespaces');
+      const response = await fetch(`${BASE_URL}/contexts`);
+      if (!response.ok) throw new Error('Failed to fetch contexts');
       const data = await response.json();
-      setNamespaces(data);
+      setContexts(data);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const setContext = async (context) => {
+    try {
+      const response = await fetch(`${BASE_URL}/set-context/${context}`);
+      if (!response.ok) throw new Error('Failed to set context');
+      await response.json(); // Consume the response
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -277,14 +300,14 @@ function App() {
         {/* Left toolbar with all controls */}
         <div className="toolbar">
           <div className="selectors">
-            <label>Namespace: </label>
-            <select value={selectedNamespace} onChange={e => {
-              setSelectedNamespace(e.target.value);
+            <label>Context: </label>
+            <select value={selectedContext} onChange={e => {
+              setSelectedContext(e.target.value);
               setSelectedPods([]);
             }}>
-              <option value="">Select Namespace</option>
-              {namespaces.map(ns => (
-                <option key={ns} value={ns}>{ns}</option>
+              <option value="">Select Context</option>
+              {Object.entries(contexts).map(([context, namespace]) => (
+                <option key={context} value={context}>{context} ({namespace})</option>
               ))}
             </select>
 

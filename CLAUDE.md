@@ -26,3 +26,7 @@
 - Frontend uses React with hooks for state management
 - Time parsing uses moment.js for flexible timestamp formats
 - Custom regex patterns can be defined per pod prefix
+
+## Additional instructions
+
+- No need to start the server or mock, it is already running

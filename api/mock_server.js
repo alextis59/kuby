@@ -13,7 +13,13 @@ app.use(express.static(path.join(__dirname, '../app')));
 
 // Mock data
 const mockData = {
-  namespaces: ['default', 'kube-system', 'monitoring', 'app-production', 'app-staging'],
+  contexts: {
+    'minikube': 'default',
+    'gke_project_zone_cluster': 'kube-system',
+    'aks_cluster': 'monitoring',
+    'eks_cluster': 'app-production',
+    'docker-desktop': 'app-staging',
+  },
   pods: {
     'default': ['nginx-548b6c8d64-abcde', 'mysql-74d5c6688d-fghij', 'redis-6b54b7d776-klmno'],
     'kube-system': ['coredns-558bd4d5db-pqrst', 'kube-proxy-uvwxy', 'metrics-server-z1234'],
@@ -131,11 +137,23 @@ const mockData = {
   }
 };
 
-// Route to get namespaces
-app.get('/namespaces', (req, res) => {
+// Route to get contexts
+app.get('/contexts', (req, res) => {
   setTimeout(() => {
-    res.json(mockData.namespaces);
+    res.json(mockData.contexts);
   }, 500); // Add 500ms delay to simulate network latency
+});
+
+// Route to set current context
+app.get('/set-context/:context', (req, res) => {
+  const { context } = req.params;
+  setTimeout(() => {
+    if (mockData.contexts[context]) {
+      res.json({ success: true, message: `Context set to ${context}` });
+    } else {
+      res.status(404).json({ error: `Context ${context} not found` });
+    }
+  }, 300);
 });
 
 // Route to get pods from a namespace

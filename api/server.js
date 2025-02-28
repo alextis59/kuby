@@ -10,16 +10,49 @@ const port = 3000;
 // Middleware to serve static files from the app directory
 app.use(express.static(path.join(__dirname, '../app')));
 
-// Route to get namespaces
-app.get('/namespaces', async (req, res) => {
+// Route to get contexts with namespaces
+app.get('/contexts', async (req, res) => {
   try {
-    const { stdout } = await execPromise('kubectl get namespaces');
-    const namespaces = stdout
-      .split('\n')
-      .slice(1) // Skip header
-      .filter(line => line) // Remove empty lines
-      .map(line => line.split(' ')[0]); // Extract namespace name
-    res.json(namespaces);
+    const { stdout } = await execPromise('kubectl config get-contexts');
+    const lines = stdout.split('\n').filter(line => line.trim()); // Remove empty lines
+    
+    // Parse table output
+    const contexts = {};
+    // Skip the header line
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      // Split by whitespace but preserve multiple spaces between columns
+      const columns = line.split(/\s+/);
+      
+      // The format is typically:
+      // CURRENT   NAME              CLUSTER           AUTHINFO         NAMESPACE
+      // *         context-name      cluster-name      user-name        namespace-name
+      
+      // Check for the current context marker (*)
+      let startIndex = 0;
+      if (columns[0] === '*') {
+        startIndex = 1;
+      }
+      
+      const contextName = columns[startIndex];
+      // Namespace is usually the last column, but might not be set
+      const namespace = columns[columns.length - 1] || '';
+      
+      contexts[contextName] = namespace;
+    }
+    
+    res.json(contexts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Route to set current context
+app.get('/set-context/:context', async (req, res) => {
+  const { context } = req.params;
+  try {
+    await execPromise(`kubectl config use-context ${context}`);
+    res.json({ success: true, message: `Context set to ${context}` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
