@@ -83,7 +83,6 @@ function App() {
     if (!toolbar || !resizeHandle) return;
     
     // Set the initial width from state
-    console.log(toolbarWidth);
     toolbar.style.width = `${toolbarWidth}px`;
     
     // Mouse down handler to start resizing
@@ -474,9 +473,9 @@ function App() {
             }
             
             timestamp = momentDate.toDate();
-            console.log(`Successfully parsed timestamp: ${timestampStr} to ${timestamp}`);
+            // console.log(`Successfully parsed timestamp: ${timestampStr} to ${timestamp}`);
           } else {
-            console.log(`Failed to parse timestamp: ${timestampStr} with format: ${momentFormat}`);
+            // console.log(`Failed to parse timestamp: ${timestampStr} with format: ${momentFormat}`);
             hasParsingErrors = true;
           }
         } 
