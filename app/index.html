@@ -25,6 +25,33 @@
   <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/moment@2.29.4/min/moment.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Global constants -->
+  <script>
+    window.BASE_URL = 'http://localhost:3000';
+    window.DEFAULT_TOOLBAR_WIDTH = 280;
+    window.DEFAULT_TAIL_LINES = 50;
+    window.MIN_TOOLBAR_WIDTH = 200;
+    window.MAX_TOOLBAR_WIDTH = 600;
+  </script>
+  
+  <!-- Utility modules -->
+  <script type="text/babel" src="/utils/podUtils.js"></script>
+  <script type="text/babel" src="/utils/logUtils.js"></script>
+  <script type="text/babel" src="/utils/apiService.js"></script>
+  <script type="text/babel" src="/utils/constants.js"></script>
+  
+  <!-- Component modules -->
+  <script type="text/babel" src="/components/ToastNotification.js"></script>
+  <script type="text/babel" src="/components/ContextSelector.js"></script>
+  <script type="text/babel" src="/components/PodSelector.js"></script>
+  <script type="text/babel" src="/components/LogOptions.js"></script>
+  <script type="text/babel" src="/components/LogFilters.js"></script>
+  <script type="text/babel" src="/components/LogsDisplay.js"></script>
+  <script type="text/babel" src="/components/ParsingOptionsModal.js"></script>
+  <script type="text/babel" src="/components/Toolbar.js"></script>
+  
+  <!-- Main App -->
   <script type="text/babel" src="/App.js"></script>
 </body>
 </html>
