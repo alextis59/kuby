@@ -6,6 +6,7 @@ const ReactDOM = window.ReactDOM;
 const { 
   truncatePodName, generatePodColor, parseLogs, 
   fetchContexts, setContext, fetchPods, fetchPodLogs,
+  createLogStream, stopLogStream,
   DEFAULT_TOOLBAR_WIDTH, DEFAULT_TAIL_LINES 
 } = window;
 
@@ -43,6 +44,8 @@ function App() {
   const [showEditor, setShowEditor] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [isStreaming, setIsStreaming] = React.useState(false);
+  const [streamSocket, setStreamSocket] = React.useState(null);
   
   // Toast notifications
   const { toasts, showToast, removeToast } = useToasts();
@@ -256,6 +259,124 @@ function App() {
     setTailLines(lines);
     localStorage.setItem('tailLines', lines.toString());
   };
+  
+  // Start streaming logs for all selected pods
+  const startStreaming = () => {
+    if (!selectedNamespace || selectedPods.length === 0) {
+      setError('Please select a namespace and at least one pod');
+      showToast('Please select a namespace and at least one pod', 'error');
+      return;
+    }
+    
+    // Clear existing logs
+    setLogs([]);
+    setPodsWithLogs([...selectedPods]);
+    setPodsWithErrors([]);
+    
+    // Create a WebSocket connection
+    const socket = createLogStream(
+      selectedNamespace,
+      selectedPods.join(','), // Send all selected pods as comma-separated string
+      // On message callback
+      (data) => {
+        if (data.type === 'log') {
+          // Parse log data
+          const parsedLogs = parseLogs(data.data, data.pod, parsingOptions);
+          
+          // Add pod name to each log entry
+          const logsWithPodName = parsedLogs.map(log => ({
+            ...log,
+            podName: data.pod
+          }));
+          
+          // Check for log entries without timestamps that need to be merged with previous log entry
+          setLogs(prevLogs => {
+            // Handle special case where we have untimestamped logs
+            if (logsWithPodName.length > 0 && logsWithPodName.some(log => log.hasParsingError)) {
+              const result = [...prevLogs];
+              
+              // Process logs with parsing errors (no timestamp)
+              const logsWithErrors = logsWithPodName.filter(log => log.hasParsingError);
+              const mergedLogs = [];
+              
+              // Process each log with error
+              logsWithErrors.forEach(log => {
+                let merged = false;
+                
+                // Try to find the last log entry from the same pod
+                const lastLogIndex = result.length - 1;
+                for (let i = lastLogIndex; i >= 0; i--) {
+                  if (result[i].podName === log.podName) {
+                    // Merge the content with the previous log from the same pod
+                    result[i].line += '\n' + log.line;
+                    merged = true;
+                    break; // Stop searching once we found a match
+                  }
+                }
+                
+                // If no previous log from this pod was found, add to a list to be added separately
+                if (!merged) {
+                  mergedLogs.push(log);
+                }
+              });
+              
+              // Add all logs that have proper timestamps and unmerged logs with errors
+              const logsToAdd = logsWithPodName.filter(log => !log.hasParsingError);
+              return [...result, ...mergedLogs, ...logsToAdd];
+            }
+            
+            // Normal case - just append all logs
+            return [...prevLogs, ...logsWithPodName];
+          });
+        } else if (data.type === 'error') {
+          showToast(`Error: ${data.data}`, 'error');
+          if (!podsWithErrors.includes(data.pod)) {
+            setPodsWithErrors(prev => [...prev, data.pod]);
+          }
+        } else if (data.type === 'info') {
+          showToast(data.data, 'info');
+        }
+      },
+      // On error callback
+      (error) => {
+        setError(`WebSocket error: ${error}`);
+        showToast(`WebSocket error: ${error}`, 'error');
+      },
+      // On close callback
+      () => {
+        setIsStreaming(false);
+        setStreamSocket(null);
+        showToast('Log streaming has ended', 'info');
+      }
+    );
+    
+    // Store socket reference
+    setStreamSocket(socket);
+    
+    // Update streaming state
+    setIsStreaming(true);
+    
+    showToast(`Started streaming logs for ${selectedPods.length} pod(s)`, 'success');
+  };
+  
+  // Stop streaming logs
+  const stopStreaming = () => {
+    if (streamSocket) {
+      stopLogStream(streamSocket);
+      setStreamSocket(null);
+      setIsStreaming(false);
+      showToast('Stopped log streaming', 'info');
+    }
+  };
+  
+  // Clean up socket on unmount
+  React.useEffect(() => {
+    return () => {
+      if (streamSocket) {
+        stopLogStream(streamSocket);
+      }
+    };
+  }, [streamSocket]);
 
   // Filter logs based on selected pods, search, and time range
   const filteredLogs = logs.filter(log => {
@@ -263,7 +384,8 @@ function App() {
     const matchesSearch = searchString ? log.line.includes(searchString) : true;
     
     // Time range filtering with proper handling of datetime-local values
-    const matchesTime = timeRange.start && timeRange.end ? (() => {
+    // Skip time range filtering if streaming is active
+    const matchesTime = isStreaming ? true : (timeRange.start && timeRange.end ? (() => {
       // Create Date objects from the time range inputs (these will use local timezone)
       const startDate = new Date(timeRange.start);
       const endDate = new Date(timeRange.end);
@@ -273,7 +395,7 @@ function App() {
       endDate.setMilliseconds(999);
       
       return log.timestamp >= startDate && log.timestamp <= endDate;
-    })() : true;
+    })() : true);
     
     return matchesPod && matchesSearch && matchesTime;
   });
@@ -319,6 +441,9 @@ function App() {
           onTimeRangeChange={setTimeRange}
           error={error}
           onWidthChange={handleToolbarWidthChange}
+          isStreaming={isStreaming}
+          onStartStreaming={startStreaming}
+          onStopStreaming={stopStreaming}
         />
         
         {/* Right side with logs */}

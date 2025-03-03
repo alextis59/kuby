@@ -1,10 +1,14 @@
 const express = require('express');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const util = require('util');
 const path = require('path');
+const http = require('http');
+const WebSocket = require('ws');
 
 const execPromise = util.promisify(exec);
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 const port = 3000;
 
 // Middleware to serve static files from the app directory
@@ -96,6 +100,90 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../app', 'index.html'));
 });
 
-app.listen(port, () => {
+// Handle WebSocket connections for log streaming
+wss.on('connection', (ws) => {
+  console.log('WebSocket client connected');
+  // Keep track of all stream processes
+  let streamProcesses = {};
+
+  // Handle messages from client
+  ws.on('message', (message) => {
+    const data = JSON.parse(message);
+    
+    // Handle start streaming message
+    if (data.action === 'startStream') {
+      const { namespace, pod } = data;
+      
+      // Kill any existing processes
+      Object.values(streamProcesses).forEach(process => {
+        process.kill();
+      });
+      streamProcesses = {};
+      
+      // Handle multiple pods (comma-separated)
+      const pods = pod.split(',');
+      console.log(`Starting log stream for ${pods.length} pod(s) in namespace ${namespace}`);
+      
+      // Start a kubectl logs -f process for each pod
+      pods.forEach(podName => {
+        console.log(`Starting stream for pod ${podName}`);
+        const process = spawn('kubectl', ['logs', '-n', namespace, podName, '-f', '--tail=10']);
+        streamProcesses[podName] = process;
+        
+        // Send data from the process stdout to the WebSocket client
+        process.stdout.on('data', (data) => {
+          ws.send(JSON.stringify({
+            type: 'log',
+            pod: podName,
+            data: data.toString()
+          }));
+        });
+        
+        // Handle errors
+        process.stderr.on('data', (data) => {
+          ws.send(JSON.stringify({
+            type: 'error',
+            pod: podName,
+            data: data.toString()
+          }));
+        });
+        
+        // Handle process exit
+        process.on('close', (code) => {
+          ws.send(JSON.stringify({
+            type: 'info',
+            data: `Log stream for ${podName} closed with code ${code}`
+          }));
+          delete streamProcesses[podName];
+        });
+      });
+    }
+    
+    // Handle stop streaming message
+    if (data.action === 'stopStream') {
+      console.log('Stopping all log streams');
+      Object.values(streamProcesses).forEach(process => {
+        process.kill();
+      });
+      streamProcesses = {};
+      ws.send(JSON.stringify({
+        type: 'info',
+        data: 'All log streams stopped'
+      }));
+    }
+  });
+  
+  // Handle client disconnect
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+    // Kill all streaming processes
+    Object.values(streamProcesses).forEach(process => {
+      process.kill();
+    });
+    streamProcesses = {};
+  });
+});
+
+server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

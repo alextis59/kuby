@@ -28,7 +28,10 @@ function Toolbar({
   onSearchChange,
   onTimeRangeChange,
   error,
-  onWidthChange
+  onWidthChange,
+  isStreaming,
+  onStartStreaming,
+  onStopStreaming
 }) {
   // References and state variables for toolbar resizing
   const toolbarRef = React.useRef(null);
@@ -175,6 +178,9 @@ function Toolbar({
         onOpenEditor={onOpenEditor}
         loading={loading}
         selectedPods={selectedPods}
+        isStreaming={isStreaming}
+        onStartStreaming={onStartStreaming}
+        onStopStreaming={onStopStreaming}
       />
 
       <LogFilters 
@@ -182,6 +188,7 @@ function Toolbar({
         timeRange={timeRange}
         onSearchChange={onSearchChange}
         onTimeRangeChange={onTimeRangeChange}
+        isStreaming={isStreaming}
       />
       
       {error && <p className="error">{error}</p>}

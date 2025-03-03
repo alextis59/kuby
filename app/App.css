@@ -266,6 +266,15 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Streaming buttons */
+button.stop-streaming {
+  background: #ef4444; /* red background for stop button */
+}
+
+button.stop-streaming:hover {
+  background: #dc2626;
+}
+
 /* Logs Display */
 .logs {
   width: 100%;

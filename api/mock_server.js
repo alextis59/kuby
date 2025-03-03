@@ -1,8 +1,12 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const http = require('http');
+const WebSocket = require('ws');
 
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 const port = 3000; // Different port from the main API
 
 // Enable CORS
@@ -258,6 +262,80 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../app', 'index.html'));
 });
 
-app.listen(port, () => {
+// Handle WebSocket connections for log streaming
+wss.on('connection', (ws) => {
+  console.log('WebSocket client connected to mock server');
+  let streamIntervals = {};
+
+  // Handle messages from client
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      
+      // Handle start streaming message
+      if (data.action === 'startStream') {
+        const { namespace, pod } = data;
+        
+        // Clear any existing intervals
+        Object.keys(streamIntervals).forEach(key => {
+          clearInterval(streamIntervals[key]);
+        });
+        streamIntervals = {};
+        
+        // Handle multiple pods (comma-separated)
+        const pods = pod.split(',');
+        console.log(`Starting mock log stream for ${pods.length} pod(s) in namespace ${namespace}`);
+        
+        // Start sending logs for each pod
+        pods.forEach(podName => {
+          console.log(`Starting mock stream for pod ${podName}`);
+          
+          // Send logs every 2 seconds for each pod
+          // Use different intervals for each pod to prevent all logs arriving simultaneously
+          const delay = 1000 + Math.random() * 2000;
+          streamIntervals[podName] = setInterval(() => {
+            // Generate a single log entry
+            const logEntry = mockData.logGenerators.generateLogEntry(podName);
+            
+            // Send to client
+            ws.send(JSON.stringify({
+              type: 'log',
+              pod: podName,
+              data: logEntry
+            }));
+          }, delay);
+        });
+      }
+      
+      // Handle stop streaming message
+      if (data.action === 'stopStream') {
+        console.log('Stopping all mock log streams');
+        Object.keys(streamIntervals).forEach(key => {
+          clearInterval(streamIntervals[key]);
+        });
+        streamIntervals = {};
+        
+        ws.send(JSON.stringify({
+          type: 'info',
+          data: 'All log streams stopped'
+        }));
+      }
+    } catch (error) {
+      console.error('Error handling WebSocket message:', error);
+    }
+  });
+  
+  // Handle client disconnect
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected from mock server');
+    // Clear all intervals
+    Object.keys(streamIntervals).forEach(key => {
+      clearInterval(streamIntervals[key]);
+    });
+    streamIntervals = {};
+  });
+});
+
+server.listen(port, () => {
   console.log(`Mock API server running on http://localhost:${port}`);
 });

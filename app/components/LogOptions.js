@@ -9,12 +9,19 @@ function LogOptions({
   onFetchLogs, 
   onOpenEditor,
   loading,
-  selectedPods 
+  selectedPods,
+  isStreaming,
+  onStartStreaming,
+  onStopStreaming
 }) {
   return (
     <div className="options">
       <label>Log Option:</label>
-      <select value={logOption} onChange={e => onLogOptionChange(e.target.value)}>
+      <select 
+        value={logOption} 
+        onChange={e => onLogOptionChange(e.target.value)}
+        disabled={isStreaming}
+      >
         <option value="complete">Complete Logs</option>
         <option value="tail">Last X Lines</option>
       </select>
@@ -26,16 +33,40 @@ function LogOptions({
             value={tailLines}
             onChange={e => onTailLinesChange(e.target.value)}
             min="1"
+            disabled={isStreaming}
           />
         </>
       )}
+      {!isStreaming ? (
+        <>
+          <button 
+            onClick={onFetchLogs} 
+            disabled={loading || selectedPods.length === 0}
+          >
+            {loading ? 'Fetching...' : 'Fetch Logs'}
+          </button>
+          <button 
+            onClick={onStartStreaming}
+            disabled={loading || selectedPods.length === 0}
+          >
+            Stream Logs
+          </button>
+        </>
+      ) : (
+        <button 
+          onClick={onStopStreaming}
+          disabled={loading}
+          className="stop-streaming"
+        >
+          Stop Streaming
+        </button>
+      )}
       <button 
-        onClick={onFetchLogs} 
-        disabled={loading || selectedPods.length === 0}
+        onClick={onOpenEditor}
+        disabled={isStreaming}
       >
-        {loading ? 'Fetching...' : 'Fetch Logs'}
+        Edit Parsing Options
       </button>
-      <button onClick={onOpenEditor}>Edit Parsing Options</button>
     </div>
   );
 }
