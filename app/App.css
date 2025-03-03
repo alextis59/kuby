@@ -41,8 +41,7 @@
 
 /* Resize handle custom styling */
 .toolbar::-webkit-resizer {
-  background-color: #3b82f6;
-  border-radius: 50%;
+  
 }
 
 /* Custom resize handle overlay */
