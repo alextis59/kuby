@@ -3,11 +3,11 @@ const path = require('path');
 const cors = require('cors');
 const http = require('http');
 const WebSocket = require('ws');
+// open is imported dynamically where needed
 
 const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-const port = 3000; // Different port from the main API
+let port = 3000; // Default port
+const MAX_PORT_TRIES = 10;
 
 // Enable CORS
 app.use(cors());
@@ -262,80 +262,141 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../app', 'index.html'));
 });
 
-// Handle WebSocket connections for log streaming
-wss.on('connection', (ws) => {
-  console.log('WebSocket client connected to mock server');
-  let streamIntervals = {};
+// WebSocket handler function - will be initialized after finding an available port
+function setupWebSocketServer(server) {
+  const wss = new WebSocket.Server({ server });
+  
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected to mock server');
+    let streamIntervals = {};
 
-  // Handle messages from client
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      
-      // Handle start streaming message
-      if (data.action === 'startStream') {
-        const { namespace, pod } = data;
+    // Handle messages from client
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message);
         
-        // Clear any existing intervals
-        Object.keys(streamIntervals).forEach(key => {
-          clearInterval(streamIntervals[key]);
-        });
-        streamIntervals = {};
-        
-        // Handle multiple pods (comma-separated)
-        const pods = pod.split(',');
-        console.log(`Starting mock log stream for ${pods.length} pod(s) in namespace ${namespace}`);
-        
-        // Start sending logs for each pod
-        pods.forEach(podName => {
-          console.log(`Starting mock stream for pod ${podName}`);
+        // Handle start streaming message
+        if (data.action === 'startStream') {
+          const { namespace, pod } = data;
           
-          // Send logs every 2 seconds for each pod
-          // Use different intervals for each pod to prevent all logs arriving simultaneously
-          const delay = 1000 + Math.random() * 2000;
-          streamIntervals[podName] = setInterval(() => {
-            // Generate a single log entry
-            const logEntry = mockData.logGenerators.generateLogEntry(podName);
+          // Clear any existing intervals
+          Object.keys(streamIntervals).forEach(key => {
+            clearInterval(streamIntervals[key]);
+          });
+          streamIntervals = {};
+          
+          // Handle multiple pods (comma-separated)
+          const pods = pod.split(',');
+          console.log(`Starting mock log stream for ${pods.length} pod(s) in namespace ${namespace}`);
+          
+          // Start sending logs for each pod
+          pods.forEach(podName => {
+            console.log(`Starting mock stream for pod ${podName}`);
             
-            // Send to client
-            ws.send(JSON.stringify({
-              type: 'log',
-              pod: podName,
-              data: logEntry
-            }));
-          }, delay);
-        });
-      }
-      
-      // Handle stop streaming message
-      if (data.action === 'stopStream') {
-        console.log('Stopping all mock log streams');
-        Object.keys(streamIntervals).forEach(key => {
-          clearInterval(streamIntervals[key]);
-        });
-        streamIntervals = {};
+            // Send logs every 2 seconds for each pod
+            // Use different intervals for each pod to prevent all logs arriving simultaneously
+            const delay = 1000 + Math.random() * 2000;
+            streamIntervals[podName] = setInterval(() => {
+              // Generate a single log entry
+              const logEntry = mockData.logGenerators.generateLogEntry(podName);
+              
+              // Send to client
+              ws.send(JSON.stringify({
+                type: 'log',
+                pod: podName,
+                data: logEntry
+              }));
+            }, delay);
+          });
+        }
         
-        // ws.send(JSON.stringify({
-        //   type: 'info',
-        //   data: 'All log streams stopped'
-        // }));
+        // Handle stop streaming message
+        if (data.action === 'stopStream') {
+          console.log('Stopping all mock log streams');
+          Object.keys(streamIntervals).forEach(key => {
+            clearInterval(streamIntervals[key]);
+          });
+          streamIntervals = {};
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
       }
-    } catch (error) {
-      console.error('Error handling WebSocket message:', error);
-    }
+    });
+    
+    // Handle client disconnect
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected from mock server');
+      // Clear all intervals
+      Object.keys(streamIntervals).forEach(key => {
+        clearInterval(streamIntervals[key]);
+      });
+      streamIntervals = {};
+    });
   });
   
-  // Handle client disconnect
-  ws.on('close', () => {
-    console.log('WebSocket client disconnected from mock server');
-    // Clear all intervals
-    Object.keys(streamIntervals).forEach(key => {
-      clearInterval(streamIntervals[key]);
-    });
-    streamIntervals = {};
-  });
-});
+  return wss;
+}
 
-server.listen(port, () => {
-  console.log(`Mock API server running on http://localhost:${port}`);
-});
+// Start the server and handle port retries
+(async function() {
+  let currentPort = port;
+  let attempt = 1;
+  
+  while (attempt <= MAX_PORT_TRIES) {
+    try {
+      // Create a fresh server instance
+      const server = http.createServer(app);
+      
+      // Attempt to start the server
+      const success = await new Promise((resolve) => {
+        // Set up error handler to catch 'port in use' errors
+        server.once('error', (err) => {
+          if (err.code === 'EADDRINUSE') {
+            console.log(`Port ${currentPort} is already in use, trying port ${currentPort + 1}...`);
+            server.close();
+            currentPort++;
+            attempt++;
+            resolve(false); // Signal to try next port
+          } else {
+            console.error('Server error:', err);
+            process.exit(1);
+          }
+        });
+        
+        // Set up listening handler for successful start
+        server.once('listening', () => {
+          console.log(`Mock API server running on http://localhost:${currentPort}`);
+          resolve(true); // Signal successful server start
+        });
+        
+        // Try to start the server
+        server.listen(currentPort);
+      });
+      
+      // If server started successfully
+      if (success) {
+        // Now set up WebSocket server on the successful server instance
+        setupWebSocketServer(server);
+        
+        // Open the browser
+        try {
+          const open = await import('open');
+          await open.default(`http://localhost:${currentPort}`);
+        } catch (err) {
+          console.log(`Failed to open browser: ${err.message}`);
+        }
+        
+        // Break out of the retry loop
+        break;
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      process.exit(1);
+    }
+  }
+  
+  if (attempt > MAX_PORT_TRIES) {
+    console.error(`Failed to find an available port after ${MAX_PORT_TRIES} attempts.`);
+    process.exit(1);
+  }
+})();

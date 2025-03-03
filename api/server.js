@@ -4,12 +4,12 @@ const util = require('util');
 const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
+// open is imported dynamically where needed
 
 const execPromise = util.promisify(exec);
 const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-const port = 3000;
+let port = 3000;
+const MAX_PORT_TRIES = 10;
 
 // Middleware to serve static files from the app directory
 app.use(express.static(path.join(__dirname, '../app')));
@@ -100,90 +100,152 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../app', 'index.html'));
 });
 
-// Handle WebSocket connections for log streaming
-wss.on('connection', (ws) => {
-  console.log('WebSocket client connected');
-  // Keep track of all stream processes
-  let streamProcesses = {};
+// WebSocket handler function - will be initialized after finding an available port
+function setupWebSocketServer(server) {
+  const wss = new WebSocket.Server({ server });
+  
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    // Keep track of all stream processes
+    let streamProcesses = {};
 
-  // Handle messages from client
-  ws.on('message', (message) => {
-    const data = JSON.parse(message);
-    
-    // Handle start streaming message
-    if (data.action === 'startStream') {
-      const { namespace, pod } = data;
+    // Handle messages from client
+    ws.on('message', (message) => {
+      const data = JSON.parse(message);
       
-      // Kill any existing processes
+      // Handle start streaming message
+      if (data.action === 'startStream') {
+        const { namespace, pod } = data;
+        
+        // Kill any existing processes
+        Object.values(streamProcesses).forEach(process => {
+          process.kill();
+        });
+        streamProcesses = {};
+        
+        // Handle multiple pods (comma-separated)
+        const pods = pod.split(',');
+        console.log(`Starting log stream for ${pods.length} pod(s) in namespace ${namespace}`);
+        
+        // Start a kubectl logs -f process for each pod
+        pods.forEach(podName => {
+          console.log(`Starting stream for pod ${podName}`);
+          const process = spawn('kubectl', ['logs', '-n', namespace, podName, '-f', '--tail=10']);
+          streamProcesses[podName] = process;
+          
+          // Send data from the process stdout to the WebSocket client
+          process.stdout.on('data', (data) => {
+            ws.send(JSON.stringify({
+              type: 'log',
+              pod: podName,
+              data: data.toString()
+            }));
+          });
+          
+          // Handle errors
+          process.stderr.on('data', (data) => {
+            ws.send(JSON.stringify({
+              type: 'error',
+              pod: podName,
+              data: data.toString()
+            }));
+          });
+          
+          // Handle process exit
+          process.on('close', (code) => {
+            ws.send(JSON.stringify({
+              type: 'info',
+              data: `Log stream for ${podName} closed with code ${code}`
+            }));
+            delete streamProcesses[podName];
+          });
+        });
+      }
+      
+      // Handle stop streaming message
+      if (data.action === 'stopStream') {
+        console.log('Stopping all log streams');
+        Object.values(streamProcesses).forEach(process => {
+          process.kill();
+        });
+        streamProcesses = {};
+      }
+    });
+    
+    // Handle client disconnect
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+      // Kill all streaming processes
       Object.values(streamProcesses).forEach(process => {
         process.kill();
       });
       streamProcesses = {};
-      
-      // Handle multiple pods (comma-separated)
-      const pods = pod.split(',');
-      console.log(`Starting log stream for ${pods.length} pod(s) in namespace ${namespace}`);
-      
-      // Start a kubectl logs -f process for each pod
-      pods.forEach(podName => {
-        console.log(`Starting stream for pod ${podName}`);
-        const process = spawn('kubectl', ['logs', '-n', namespace, podName, '-f', '--tail=10']);
-        streamProcesses[podName] = process;
-        
-        // Send data from the process stdout to the WebSocket client
-        process.stdout.on('data', (data) => {
-          ws.send(JSON.stringify({
-            type: 'log',
-            pod: podName,
-            data: data.toString()
-          }));
-        });
-        
-        // Handle errors
-        process.stderr.on('data', (data) => {
-          ws.send(JSON.stringify({
-            type: 'error',
-            pod: podName,
-            data: data.toString()
-          }));
-        });
-        
-        // Handle process exit
-        process.on('close', (code) => {
-          ws.send(JSON.stringify({
-            type: 'info',
-            data: `Log stream for ${podName} closed with code ${code}`
-          }));
-          delete streamProcesses[podName];
-        });
-      });
-    }
-    
-    // Handle stop streaming message
-    if (data.action === 'stopStream') {
-      console.log('Stopping all log streams');
-      Object.values(streamProcesses).forEach(process => {
-        process.kill();
-      });
-      streamProcesses = {};
-    //   ws.send(JSON.stringify({
-    //     type: 'info',
-    //     data: 'All log streams stopped'
-    //   }));
-    }
+    });
   });
   
-  // Handle client disconnect
-  ws.on('close', () => {
-    console.log('WebSocket client disconnected');
-    // Kill all streaming processes
-    Object.values(streamProcesses).forEach(process => {
-      process.kill();
-    });
-    streamProcesses = {};
-  });
-});
+  return wss;
+}
 
-server.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+// Start the server and handle port retries
+(async function() {
+  let currentPort = port;
+  let attempt = 1;
+  
+  while (attempt <= MAX_PORT_TRIES) {
+    try {
+      // Create a fresh server instance
+      const server = http.createServer(app);
+      
+      // Attempt to start the server
+      const success = await new Promise((resolve) => {
+        // Set up error handler to catch 'port in use' errors
+        server.once('error', (err) => {
+          if (err.code === 'EADDRINUSE') {
+            console.log(`Port ${currentPort} is already in use, trying port ${currentPort + 1}...`);
+            server.close();
+            currentPort++;
+            attempt++;
+            resolve(false); // Signal to try next port
+          } else {
+            console.error('Server error:', err);
+            process.exit(1);
+          }
+        });
+        
+        // Set up listening handler for successful start
+        server.once('listening', () => {
+          console.log(`Server running on http://localhost:${currentPort}`);
+          resolve(true); // Signal successful server start
+        });
+        
+        // Try to start the server
+        server.listen(currentPort);
+      });
+      
+      // If server started successfully
+      if (success) {
+        // Now set up WebSocket server on the successful server instance
+        setupWebSocketServer(server);
+        
+        // Open the browser
+        try {
+          const open = await import('open');
+          await open.default(`http://localhost:${currentPort}`);
+        } catch (err) {
+          console.log(`Failed to open browser: ${err.message}`);
+        }
+        
+        // Break out of the retry loop
+        break;
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      process.exit(1);
+    }
+  }
+  
+  if (attempt > MAX_PORT_TRIES) {
+    console.error(`Failed to find an available port after ${MAX_PORT_TRIES} attempts.`);
+    process.exit(1);
+  }
+})();
