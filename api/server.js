@@ -166,10 +166,10 @@ wss.on('connection', (ws) => {
         process.kill();
       });
       streamProcesses = {};
-      ws.send(JSON.stringify({
-        type: 'info',
-        data: 'All log streams stopped'
-      }));
+    //   ws.send(JSON.stringify({
+    //     type: 'info',
+    //     data: 'All log streams stopped'
+    //   }));
     }
   });
   

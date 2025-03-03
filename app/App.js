@@ -365,6 +365,47 @@ function App() {
       stopLogStream(streamSocket);
       setStreamSocket(null);
       setIsStreaming(false);
+      
+      // Sort logs by timestamp
+      setLogs(prevLogs => {
+        // Filter logs that have valid timestamps
+        const logsWithTimestamps = prevLogs.filter(log => !log.hasParsingError && log.timestamp);
+        
+        // Sort logs by timestamp
+        const sortedLogs = [...logsWithTimestamps].sort((a, b) => a.timestamp - b.timestamp);
+        
+        // If there are logs with timestamps, set the time range
+        if (sortedLogs.length > 0) {
+          // Find min and max timestamps
+          const minTimestamp = sortedLogs[0].timestamp;
+          const maxTimestamp = sortedLogs[sortedLogs.length - 1].timestamp;
+          
+          // Format timestamps for datetime-local input (YYYY-MM-DDThh:mm)
+          // Using local timezone adjustment to prevent UTC conversion issues
+          const formatDateForInput = (date) => {
+            const pad = (num) => num.toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const month = pad(date.getMonth() + 1); // getMonth() is 0-indexed
+            const day = pad(date.getDate());
+            const hours = pad(date.getHours());
+            const minutes = pad(date.getMinutes());
+            
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+          };
+          
+          // Set time range
+          setTimeRange({
+            start: formatDateForInput(minTimestamp),
+            end: formatDateForInput(maxTimestamp)
+          });
+        }
+        
+        // Add logs without timestamps at the end
+        const logsWithoutTimestamps = prevLogs.filter(log => log.hasParsingError || !log.timestamp);
+        
+        return [...sortedLogs, ...logsWithoutTimestamps];
+      });
+      
       showToast('Stopped log streaming', 'info');
     }
   };

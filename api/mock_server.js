@@ -315,10 +315,10 @@ wss.on('connection', (ws) => {
         });
         streamIntervals = {};
         
-        ws.send(JSON.stringify({
-          type: 'info',
-          data: 'All log streams stopped'
-        }));
+        // ws.send(JSON.stringify({
+        //   type: 'info',
+        //   data: 'All log streams stopped'
+        // }));
       }
     } catch (error) {
       console.error('Error handling WebSocket message:', error);
