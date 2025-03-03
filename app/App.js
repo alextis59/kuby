@@ -327,6 +327,7 @@ function App() {
           podDisplayNames={podDisplayNames} 
           podColors={podColors} 
           isSameDay={isSameDay}
+          isSinglePod={selectedPods.length === 1}
           showToast={showToast}
         />
       </div>

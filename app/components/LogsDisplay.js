@@ -1,7 +1,7 @@
 // Logs display component
 const React = window.React;
 
-function LogsDisplay({ logs, podDisplayNames, podColors, isSameDay, showToast }) {
+function LogsDisplay({ logs, podDisplayNames, podColors, isSameDay, isSinglePod, showToast }) {
   const filteredLogs = logs;
   
   return (
@@ -50,15 +50,17 @@ function LogsDisplay({ logs, podDisplayNames, podColors, isSameDay, showToast })
               <span className="log-timestamp">
                 {isSameDay ? log.shortDisplayString : log.fullDisplayString}
               </span>
-              <span 
-                className="log-pod"
-                style={{ 
-                  backgroundColor: podColors[log.podName] || '#e5e7eb',
-                  color: '#ffffff' 
-                }}
-              >
-                [{podDisplayNames[log.podName] || log.podName}]
-              </span>
+              {!isSinglePod && (
+                <span 
+                  className="log-pod"
+                  style={{ 
+                    backgroundColor: podColors[log.podName] || '#e5e7eb',
+                    color: '#ffffff' 
+                  }}
+                >
+                  [{podDisplayNames[log.podName] || log.podName}]
+                </span>
+              )}
               <span className="log-line">{log.line}</span>
             </li>
           ))}
