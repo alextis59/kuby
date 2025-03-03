@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const express = require('express');
 const { exec, spawn } = require('child_process');
 const util = require('util');

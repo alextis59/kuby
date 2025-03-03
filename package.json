@@ -1,8 +1,11 @@
 {
   "name": "kuby",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Kubernetes log viewer application",
   "main": "api/server.js",
+  "bin": {
+    "kuby": "./api/server.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node api/server.js",

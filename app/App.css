@@ -24,7 +24,7 @@
 
 /* Toolbar on the left */
 .toolbar {
-  width: 280px;
+  width: 400px;
   min-width: 200px;
   max-width: 600px;
   background: #252535; /* Slightly lighter than app background */
