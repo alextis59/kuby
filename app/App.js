@@ -24,8 +24,16 @@ function App() {
   const [podDisplayNames, setPodDisplayNames] = React.useState({}); // Mapping of full pod names to display names
   const [podColors, setPodColors] = React.useState({}); // Mapping of pod names to colors
   const [selectedPods, setSelectedPods] = React.useState([]);
-  const [logOption, setLogOption] = React.useState('complete'); // 'complete' or 'tail'
-  const [tailLines, setTailLines] = React.useState(DEFAULT_TAIL_LINES);
+  const [logOption, setLogOption] = React.useState(() => {
+    // Try to load from localStorage or use 'complete' as default
+    const savedOption = localStorage.getItem('logOption');
+    return savedOption || 'complete'; // 'complete' or 'tail'
+  });
+  const [tailLines, setTailLines] = React.useState(() => {
+    // Try to load from localStorage or use default value
+    const savedTailLines = localStorage.getItem('tailLines');
+    return savedTailLines ? parseInt(savedTailLines, 10) : DEFAULT_TAIL_LINES;
+  });
   const [logs, setLogs] = React.useState([]);
   const [podsWithLogs, setPodsWithLogs] = React.useState([]); // Pods for which logs were successfully loaded
   const [podsWithErrors, setPodsWithErrors] = React.useState([]); // Pods with parsing errors
@@ -236,6 +244,18 @@ function App() {
     setToolbarWidth(newWidth);
     localStorage.setItem('toolbarWidth', newWidth.toString());
   };
+  
+  // Handle log option change and save to localStorage
+  const handleLogOptionChange = (option) => {
+    setLogOption(option);
+    localStorage.setItem('logOption', option);
+  };
+  
+  // Handle tail lines change and save to localStorage
+  const handleTailLinesChange = (lines) => {
+    setTailLines(lines);
+    localStorage.setItem('tailLines', lines.toString());
+  };
 
   // Filter logs based on selected pods, search, and time range
   const filteredLogs = logs.filter(log => {
@@ -288,8 +308,8 @@ function App() {
           podsWithErrors={podsWithErrors}
           logOption={logOption}
           tailLines={tailLines}
-          onLogOptionChange={setLogOption}
-          onTailLinesChange={setTailLines}
+          onLogOptionChange={handleLogOptionChange}
+          onTailLinesChange={handleTailLinesChange}
           onFetchLogs={fetchLogs}
           onOpenEditor={() => setShowEditor(true)}
           loading={loading}
