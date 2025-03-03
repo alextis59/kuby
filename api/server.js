@@ -83,7 +83,8 @@ app.get('/logs/:namespace/:pod', async (req, res) => {
     command += ` --tail=${tail}`;
   }
   try {
-    const { stdout } = await execPromise(command);
+    // Increase maxBuffer to handle large log outputs (100MB)
+    const { stdout } = await execPromise(command, { maxBuffer: 100 * 1024 * 1024 });
     res.send(stdout); // Send raw log text
   } catch (error) {
     res.status(500).json({ error: error.message });
