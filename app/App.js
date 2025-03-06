@@ -7,6 +7,7 @@ const {
   truncatePodName, generatePodColor, parseLogs, 
   fetchContexts, setContext, fetchPods, fetchPodLogs,
   createLogStream, stopLogStream,
+  getOptions, getOption, saveOption, saveAllOptions,
   DEFAULT_TOOLBAR_WIDTH, DEFAULT_TAIL_LINES 
 } = window;
 
@@ -25,16 +26,8 @@ function App() {
   const [podDisplayNames, setPodDisplayNames] = React.useState({}); // Mapping of full pod names to display names
   const [podColors, setPodColors] = React.useState({}); // Mapping of pod names to colors
   const [selectedPods, setSelectedPods] = React.useState([]);
-  const [logOption, setLogOption] = React.useState(() => {
-    // Try to load from localStorage or use 'complete' as default
-    const savedOption = localStorage.getItem('logOption');
-    return savedOption || 'complete'; // 'complete' or 'tail'
-  });
-  const [tailLines, setTailLines] = React.useState(() => {
-    // Try to load from localStorage or use default value
-    const savedTailLines = localStorage.getItem('tailLines');
-    return savedTailLines ? parseInt(savedTailLines, 10) : DEFAULT_TAIL_LINES;
-  });
+  const [logOption, setLogOption] = React.useState('complete'); // Default to 'complete'
+  const [tailLines, setTailLines] = React.useState(DEFAULT_TAIL_LINES);
   const [logs, setLogs] = React.useState([]);
   const [podsWithLogs, setPodsWithLogs] = React.useState([]); // Pods for which logs were successfully loaded
   const [podsWithErrors, setPodsWithErrors] = React.useState([]); // Pods with parsing errors
@@ -52,18 +45,26 @@ function App() {
   const { toasts, showToast, removeToast } = useToasts();
   
   // Toolbar width state
-  const [toolbarWidth, setToolbarWidth] = React.useState(() => {
-    // Try to load from localStorage or use default width
-    const savedWidth = localStorage.getItem('toolbarWidth');
-    return savedWidth ? parseInt(savedWidth, 10) : DEFAULT_TOOLBAR_WIDTH;
-  });
+  const [toolbarWidth, setToolbarWidth] = React.useState(DEFAULT_TOOLBAR_WIDTH);
 
-  // Load parsing options from localStorage on mount
+  // Load all user options from server on mount
   React.useEffect(() => {
-    const stored = localStorage.getItem('parsingOptions');
-    if (stored) {
-      setParsingOptions(JSON.parse(stored));
-    }
+    const loadUserOptions = async () => {
+      try {
+        const options = await getOptions();
+        
+        // Set each option if it exists
+        if (options.logOption) setLogOption(options.logOption);
+        if (options.tailLines) setTailLines(parseInt(options.tailLines, 10));
+        if (options.toolbarWidth) setToolbarWidth(parseInt(options.toolbarWidth, 10));
+        if (options.parsingOptions) setParsingOptions(options.parsingOptions);
+      } catch (error) {
+        console.error('Error loading user options:', error);
+        // Fall back to defaults if server storage fails
+      }
+    };
+    
+    loadUserOptions();
   }, []);
 
   // Fetch contexts on mount
@@ -254,27 +255,47 @@ function App() {
   };
 
   // Update parsing options
-  const updateParsingOptions = (newOptions) => {
+  const updateParsingOptions = async (newOptions) => {
     setParsingOptions(newOptions);
-    localStorage.setItem('parsingOptions', JSON.stringify(newOptions));
+    try {
+      await saveOption('parsingOptions', newOptions);
+    } catch (error) {
+      console.error('Error saving parsing options:', error);
+      showToast('Failed to save parsing options to server', 'error');
+    }
   };
 
   // Handle toolbar width change
-  const handleToolbarWidthChange = (newWidth) => {
+  const handleToolbarWidthChange = async (newWidth) => {
     setToolbarWidth(newWidth);
-    localStorage.setItem('toolbarWidth', newWidth.toString());
+    try {
+      await saveOption('toolbarWidth', newWidth.toString());
+    } catch (error) {
+      console.error('Error saving toolbar width:', error);
+      showToast('Failed to save toolbar width to server', 'error');
+    }
   };
   
-  // Handle log option change and save to localStorage
-  const handleLogOptionChange = (option) => {
+  // Handle log option change and save to server
+  const handleLogOptionChange = async (option) => {
     setLogOption(option);
-    localStorage.setItem('logOption', option);
+    try {
+      await saveOption('logOption', option);
+    } catch (error) {
+      console.error('Error saving log option:', error);
+      showToast('Failed to save log option to server', 'error');
+    }
   };
   
-  // Handle tail lines change and save to localStorage
-  const handleTailLinesChange = (lines) => {
+  // Handle tail lines change and save to server
+  const handleTailLinesChange = async (lines) => {
     setTailLines(lines);
-    localStorage.setItem('tailLines', lines.toString());
+    try {
+      await saveOption('tailLines', lines.toString());
+    } catch (error) {
+      console.error('Error saving tail lines:', error);
+      showToast('Failed to save tail lines to server', 'error');
+    }
   };
   
   // Start streaming logs for all selected pods

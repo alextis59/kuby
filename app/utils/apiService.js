@@ -91,6 +91,44 @@ function stopLogStream(socket) {
   }
 }
 
+// User options API functions
+async function getOptions() {
+  const response = await fetch(`${BASE_URL}/options`);
+  if (!response.ok) throw new Error('Failed to fetch options');
+  return await response.json();
+}
+
+async function getOption(key) {
+  const response = await fetch(`${BASE_URL}/options/${key}`);
+  if (!response.ok) throw new Error(`Failed to fetch option ${key}`);
+  const result = await response.json();
+  return result[key];
+}
+
+async function saveOption(key, value) {
+  const response = await fetch(`${BASE_URL}/options/${key}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ value })
+  });
+  if (!response.ok) throw new Error(`Failed to save option ${key}`);
+  return await response.json();
+}
+
+async function saveAllOptions(options) {
+  const response = await fetch(`${BASE_URL}/options`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(options)
+  });
+  if (!response.ok) throw new Error('Failed to save options');
+  return await response.json();
+}
+
 // Export to window
 window.fetchContexts = fetchContexts;
 window.setContext = setContext;
@@ -98,3 +136,7 @@ window.fetchPods = fetchPods;
 window.fetchPodLogs = fetchPodLogs;
 window.createLogStream = createLogStream;
 window.stopLogStream = stopLogStream;
+window.getOptions = getOptions;
+window.getOption = getOption;
+window.saveOption = saveOption;
+window.saveAllOptions = saveAllOptions;

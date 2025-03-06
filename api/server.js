@@ -6,15 +6,62 @@ const util = require('util');
 const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
+const fs = require('fs');
 // open is imported dynamically where needed
 
 const execPromise = util.promisify(exec);
+const fsPromises = fs.promises;
 const app = express();
 let port = 3000;
 const MAX_PORT_TRIES = 10;
 
+// User options storage path - store in user's home directory
+const userDataDir = path.join(process.env.HOME || process.env.USERPROFILE, '.kuby');
+const optionsFilePath = path.join(userDataDir, 'user-options.json');
+
+// Helper functions for user options
+async function ensureUserDataDirExists() {
+  try {
+    await fsPromises.mkdir(userDataDir, { recursive: true });
+  } catch (error) {
+    console.error('Error creating user data directory:', error);
+    throw error;
+  }
+}
+
+async function getUserOptions() {
+  await ensureUserDataDirExists();
+  
+  try {
+    const data = await fsPromises.readFile(optionsFilePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      // File doesn't exist, return empty options object
+      return {};
+    }
+    console.error('Error reading user options:', error);
+    throw error;
+  }
+}
+
+async function saveUserOptions(options) {
+  await ensureUserDataDirExists();
+  
+  try {
+    await fsPromises.writeFile(optionsFilePath, JSON.stringify(options, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error saving user options:', error);
+    throw error;
+  }
+}
+
 // Middleware to serve static files from the app directory
 app.use(express.static(path.join(__dirname, '../app')));
+
+// Middleware to parse JSON request bodies
+app.use(express.json());
 
 // Route to get contexts with namespaces
 app.get('/contexts', async (req, res) => {
@@ -97,7 +144,52 @@ app.get('/logs/:namespace/:pod', async (req, res) => {
   }
 });
 
-// Serve React app for all other routes
+// Route to get user options
+app.get('/options', async (req, res) => {
+  try {
+    const options = await getUserOptions();
+    res.json(options);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Route to get a specific option by key
+app.get('/options/:key', async (req, res) => {
+  const { key } = req.params;
+  try {
+    const options = await getUserOptions();
+    res.json({ [key]: options[key] || null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Route to save a specific option
+app.post('/options/:key', async (req, res) => {
+  const { key } = req.params;
+  const value = req.body.value;
+  
+  try {
+    const options = await getUserOptions();
+    options[key] = value;
+    await saveUserOptions(options);
+    res.json({ success: true, message: `Option ${key} saved successfully` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Route to save all options at once
+app.post('/options', async (req, res) => {
+  try {
+    await saveUserOptions(req.body);
+    res.json({ success: true, message: 'All options saved successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../app', 'index.html'));
 });
