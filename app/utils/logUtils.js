@@ -73,6 +73,9 @@ function parseLogs(logsText, podName, parsingOptions) {
     const line = lines[i];
     let timestamp = null;
     
+    // Check if mergeIdenticalTimestamps option is enabled
+    const shouldMergeIdenticalTimestamps = podOptions && typeof podOptions === 'object' && podOptions.mergeIdenticalTimestamps;
+  
     // Try to match the pattern in the line
     const match = line.match(pattern);
     
@@ -151,16 +154,24 @@ function parseLogs(logsText, podName, parsingOptions) {
       // Precompute shorter timestamp display without day/month/year
       const shortDisplayString = `${hours}:${minutes}:${seconds}.${milliseconds}`;
       
-      const logEntry = { 
-        line, 
-        timestamp,
-        fullDisplayString, 
-        shortDisplayString,
-        hasParsingError: false
-      };
-      
-      parsedLogs.push(logEntry);
-      lastLogWithTimestamp = logEntry;
+      // Check if we should merge with the previous log entry that has the exact same timestamp
+      if (shouldMergeIdenticalTimestamps && lastLogWithTimestamp && 
+          lastLogWithTimestamp.timestamp.getTime() === timestamp.getTime()) {
+        // Merge this line with the previous entry
+        lastLogWithTimestamp.line += '\n' + line;
+      } else {
+        // Create a new log entry
+        const logEntry = { 
+          line, 
+          timestamp,
+          fullDisplayString, 
+          shortDisplayString,
+          hasParsingError: false
+        };
+        
+        parsedLogs.push(logEntry);
+        lastLogWithTimestamp = logEntry;
+      }
     } 
     // If there's no timestamp but there was a previous line with timestamp, merge them
     else if (lastLogWithTimestamp) {

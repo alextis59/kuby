@@ -23,10 +23,13 @@ function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) 
               // Handle both old format (string) and new format (object)
               const isLegacyFormat = typeof options === 'string';
               const format = isLegacyFormat ? '' : (options.format || '');
+              // Include mergeIdenticalTimestamps option if present
+              const mergeIdenticalTimestamps = isLegacyFormat ? false : !!options.mergeIdenticalTimestamps;
               
               return {
                 prefix,
-                format
+                format,
+                mergeIdenticalTimestamps
               };
             }).filter(option => option.format); // Only include entries with a format
             
@@ -79,7 +82,9 @@ function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) 
                     }
                     
                     newOptions[option.prefix] = {
-                      format: option.format
+                      format: option.format,
+                      // Include mergeIdenticalTimestamps if present in the imported option
+                      ...(option.mergeIdenticalTimestamps !== undefined && { mergeIdenticalTimestamps: option.mergeIdenticalTimestamps })
                     };
                   });
                   
@@ -127,15 +132,40 @@ function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) 
                 placeholder="e.g. YYYY-MM-DD HH:mm:SS.sss"
                 onChange={e => {
                   const newFormat = e.target.value;
-                  // Create or update with just the format property
+                  // Preserve existing options including mergeIdenticalTimestamps
                   const newOptions = { 
                     ...parsingOptions, 
-                    [pod]: { format: newFormat } 
+                    [pod]: { 
+                      ...(isLegacyFormat ? {} : parsingOptions[pod]),
+                      format: newFormat 
+                    } 
                   };
                   updateParsingOptions(newOptions);
                 }}
                 style={{width: '250px'}}
               />
+            </div>
+            <div style={{marginTop: '5px'}}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={!isLegacyFormat && parsingOptions[pod].mergeIdenticalTimestamps}
+                  onChange={e => {
+                    const mergeIdenticalTimestamps = e.target.checked;
+                    // Update or create the mergeIdenticalTimestamps property
+                    const newOptions = { 
+                      ...parsingOptions, 
+                      [pod]: { 
+                        ...(isLegacyFormat ? { format: '' } : parsingOptions[pod]),
+                        mergeIdenticalTimestamps 
+                      } 
+                    };
+                    updateParsingOptions(newOptions);
+                  }}
+                  style={{marginRight: '5px'}}
+                />
+                Merge lines with identical timestamps
+              </label>
             </div>
             <button 
               onClick={() => {
@@ -169,17 +199,28 @@ function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) 
             style={{width: '250px'}}
           />
         </div>
+        <div style={{marginTop: '5px'}}>
+          <label>
+            <input
+              type="checkbox"
+              id="newMergeTimestamps"
+              style={{marginRight: '5px'}}
+            />
+            Merge lines with identical timestamps
+          </label>
+        </div>
         <button 
           onClick={() => {
             const pod = document.getElementById('newPod').value;
             const format = document.getElementById('newFormat').value;
+            const mergeIdenticalTimestamps = document.getElementById('newMergeTimestamps').checked;
             
             if (pod) {
               if (format) {
-                // Create with format only
+                // Create with format and mergeIdenticalTimestamps option
                 updateParsingOptions({ 
                   ...parsingOptions, 
-                  [pod]: { format }
+                  [pod]: { format, mergeIdenticalTimestamps }
                 });
               } else {
                 // Format is now required
@@ -190,6 +231,7 @@ function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) 
               // Clear inputs
               document.getElementById('newPod').value = '';
               document.getElementById('newFormat').value = '';
+              document.getElementById('newMergeTimestamps').checked = false;
             } else {
               alert("Pod name is required");
             }
