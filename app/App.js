@@ -75,10 +75,18 @@ function App() {
     if (selectedContext) {
       setSelectedNamespace(contexts[selectedContext]);
       setContextData(selectedContext);
+      // Clear logs and selected pods when switching context/namespace
+      setLogs([]);
+      setPodsWithLogs([]);
+      setPodsWithErrors([]);
+      setSelectedPods([]);
     } else {
       setSelectedNamespace('');
       setPods([]);
       setSelectedPods([]);
+      setLogs([]);
+      setPodsWithLogs([]);
+      setPodsWithErrors([]);
     }
   }, [selectedContext, contexts]);
 
@@ -86,9 +94,17 @@ function App() {
   React.useEffect(() => {
     if (selectedNamespace) {
       fetchPodsData(selectedNamespace);
+      // Ensure logs and selected pods are cleared when the namespace changes
+      setLogs([]);
+      setPodsWithLogs([]);
+      setPodsWithErrors([]);
+      setSelectedPods([]);
     } else {
       setPods([]);
       setSelectedPods([]);
+      setLogs([]);
+      setPodsWithLogs([]);
+      setPodsWithErrors([]);
     }
   }, [selectedNamespace]);
 
