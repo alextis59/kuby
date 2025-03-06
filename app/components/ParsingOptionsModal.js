@@ -3,17 +3,19 @@ const React = window.React;
 
 function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) {
   return (
-    <div className="modal">
-      <h2>Edit Parsing Options</h2>
-      <p>Specify a format string for each pod prefix:</p>
-      <p>Format examples: <code>MM/DD/YYYY HH:mm:SS</code> or <code>YYYY-MM-DD HH:mm:SS.sss</code></p>
-      <p><strong>Important:</strong> Enter pod <em>prefixes</em> (not exact pod names). 
-         When several prefixes match a pod, the options of the longest prefix will be used. For example:</p>
-      <ul>
-        <li><code>frontend</code> - Matches all pods starting with "frontend"</li>
-        <li><code>frontend-api</code> - More specific, will be used instead of "frontend" for pods starting with "frontend-api"</li>
-        <li><code>backend</code> - Matches all pods starting with "backend"</li>
-      </ul>
+    <div className="modal" style={{width: '800px', maxWidth: '90vw', maxHeight: '90vh', overflow: 'auto', backgroundColor: 'white', padding: '20px', borderRadius: '6px'}}>
+      <h2 style={{color: '#222', borderBottom: '2px solid #4a90e2', paddingBottom: '8px', fontSize: '24px', margin: '0 0 15px 0'}}>Edit Parsing Options</h2>
+      <div style={{backgroundColor: '#fff', padding: '15px', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '15px'}}>
+        <p style={{color: '#222', fontSize: '15px', margin: '0 0 10px 0'}}>Specify a format string for each pod prefix:</p>
+        <p style={{color: '#222', fontSize: '15px', margin: '0 0 10px 0'}}>Format examples: <code style={{backgroundColor: '#f5f5f5', padding: '2px 4px', border: '1px solid #e0e0e0'}}>MM/DD/YYYY HH:mm:SS</code> or <code style={{backgroundColor: '#f5f5f5', padding: '2px 4px', border: '1px solid #e0e0e0'}}>YYYY-MM-DD HH:mm:SS.sss</code></p>
+        <p style={{color: '#222', fontSize: '15px', margin: '0 0 10px 0'}}><strong>Important:</strong> Enter pod <em>prefixes</em> (not exact pod names). 
+          When several prefixes match a pod, the options of the longest prefix will be used. For example:</p>
+        <ul style={{color: '#222', marginBottom: '0', paddingLeft: '25px'}}>
+          <li style={{margin: '5px 0'}}><code style={{backgroundColor: '#f5f5f5', padding: '2px 4px', border: '1px solid #e0e0e0'}}>frontend</code> - Matches all pods starting with "frontend"</li>
+          <li style={{margin: '5px 0'}}><code style={{backgroundColor: '#f5f5f5', padding: '2px 4px', border: '1px solid #e0e0e0'}}>frontend-api</code> - More specific, will be used instead of "frontend" for pods starting with "frontend-api"</li>
+          <li style={{margin: '5px 0'}}><code style={{backgroundColor: '#f5f5f5', padding: '2px 4px', border: '1px solid #e0e0e0'}}>backend</code> - Matches all pods starting with "backend"</li>
+        </ul>
+      </div>
       
       <div style={{marginBottom: '15px'}}>
         <button 
@@ -51,7 +53,7 @@ function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) 
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
           }}
-          style={{marginRight: '10px'}}
+          style={{marginRight: '10px', padding: '8px 15px', backgroundColor: '#4a90e2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}
         >
           Export Options
         </button>
@@ -106,148 +108,173 @@ function ParsingOptionsModal({ parsingOptions, updateParsingOptions, onClose }) 
           onClick={() => {
             document.getElementById('importFile').click();
           }}
+          style={{padding: '8px 15px', backgroundColor: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}
         >
           Import Options
         </button>
       </div>
       
-      {Object.entries(parsingOptions).map(([pod, options]) => {
-        // Handle both old format (string) and new format (object)
-        const isLegacyFormat = typeof options === 'string';
-        // For legacy format, convert to format property if possible
-        const formatValue = isLegacyFormat ? '' : (options.format || '');
-        
-        return (
-          <div key={pod} style={{margin: '10px 0', padding: '5px 0', borderBottom: '1px solid #eee'}}>
-            <div><strong>{pod}</strong></div>
-            {isLegacyFormat && (
-              <div style={{marginTop: '5px', color: '#888'}}>
-                <small>Legacy format (regex only): {options}</small>
-              </div>
-            )}
-            <div style={{marginTop: '5px'}}>
-              <label style={{marginRight: '5px'}}>Format: </label>
-              <input
-                value={formatValue}
-                placeholder="e.g. YYYY-MM-DD HH:mm:SS.sss"
-                onChange={e => {
-                  const newFormat = e.target.value;
-                  // Preserve existing options including mergeIdenticalTimestamps
-                  const newOptions = { 
-                    ...parsingOptions, 
-                    [pod]: { 
-                      ...(isLegacyFormat ? {} : parsingOptions[pod]),
-                      format: newFormat 
-                    } 
-                  };
-                  updateParsingOptions(newOptions);
-                }}
-                style={{width: '250px'}}
-              />
-            </div>
-            <div style={{marginTop: '5px'}}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={!isLegacyFormat && parsingOptions[pod].mergeIdenticalTimestamps}
-                  onChange={e => {
-                    const mergeIdenticalTimestamps = e.target.checked;
-                    // Update or create the mergeIdenticalTimestamps property
-                    const newOptions = { 
-                      ...parsingOptions, 
-                      [pod]: { 
-                        ...(isLegacyFormat ? { format: '' } : parsingOptions[pod]),
-                        mergeIdenticalTimestamps 
-                      } 
-                    };
-                    updateParsingOptions(newOptions);
-                  }}
-                  style={{marginRight: '5px'}}
-                />
-                Merge lines with identical timestamps
-              </label>
-            </div>
-            <button 
-              onClick={() => {
-                const newOptions = { ...parsingOptions };
-                delete newOptions[pod];
-                updateParsingOptions(newOptions);
-              }}
-              style={{marginTop: '5px'}}
-            >
-              Delete
-            </button>
-          </div>
-        );
-      })}
-      
-      <div style={{margin: '15px 0'}}>
-        <h3>Add New Pattern</h3>
-        <div>
-          <label style={{display: 'block', marginBottom: '5px'}}>Pod Prefix:</label>
-          <input
-            placeholder="e.g. frontend, backend"
-            id="newPod"
-            style={{width: '250px'}}
-          />
-        </div>
-        <div style={{marginTop: '5px'}}>
-          <label style={{display: 'block', marginBottom: '5px'}}>Format:</label>
-          <input
-            placeholder="e.g. YYYY-MM-DD HH:mm:SS.sss"
-            id="newFormat"
-            style={{width: '250px'}}
-          />
-        </div>
-        <div style={{marginTop: '5px'}}>
-          <label>
-            <input
-              type="checkbox"
-              id="newMergeTimestamps"
-              style={{marginRight: '5px'}}
-            />
-            Merge lines with identical timestamps
-          </label>
-        </div>
-        <button 
-          onClick={() => {
-            const pod = document.getElementById('newPod').value;
-            const format = document.getElementById('newFormat').value;
-            const mergeIdenticalTimestamps = document.getElementById('newMergeTimestamps').checked;
-            
-            if (pod) {
-              if (format) {
-                // Create with format and mergeIdenticalTimestamps option
-                updateParsingOptions({ 
-                  ...parsingOptions, 
-                  [pod]: { format, mergeIdenticalTimestamps }
-                });
-              } else {
-                // Format is now required
-                alert("Please provide a format string");
-                return;
-              }
+      {/* Table to display current parsing options */}
+      <div style={{marginBottom: '20px', overflow: 'auto'}}>
+        <table style={{width: '100%', borderCollapse: 'collapse', textAlign: 'left'}}>
+          <thead>
+            <tr style={{borderBottom: '2px solid #ddd', background: '#4a90e2'}}>
+              <th style={{padding: '10px', width: '25%', color: 'white', fontWeight: 'bold'}}>Pod Prefix</th>
+              <th style={{padding: '10px', width: '35%', color: 'white', fontWeight: 'bold'}}>Format</th>
+              <th style={{padding: '10px', width: '30%', color: 'white', fontWeight: 'bold'}}>Options</th>
+              <th style={{padding: '10px', width: '10%', color: 'white', fontWeight: 'bold'}}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(parsingOptions).map(([pod, options], index) => {
+              // Handle both old format (string) and new format (object)
+              const isLegacyFormat = typeof options === 'string';
+              // For legacy format, convert to format property if possible
+              const formatValue = isLegacyFormat ? '' : (options.format || '');
               
-              // Clear inputs
-              document.getElementById('newPod').value = '';
-              document.getElementById('newFormat').value = '';
-              document.getElementById('newMergeTimestamps').checked = false;
-            } else {
-              alert("Pod name is required");
-            }
-          }}
-          style={{marginTop: '10px'}}
-        >
-          Add
-        </button>
+              return (
+                <tr key={pod} style={{borderBottom: '1px solid #eee', background: index % 2 === 0 ? '#fff' : '#f9f9f9'}}>
+                  <td style={{padding: '10px'}}>
+                    <strong style={{color: '#333', fontSize: '14px'}}>{pod}</strong>
+                    {isLegacyFormat && (
+                      <div style={{fontSize: '12px', color: '#555', marginTop: '3px'}}>
+                        <small>Legacy format (regex only): {options}</small>
+                      </div>
+                    )}
+                  </td>
+                  <td style={{padding: '10px'}}>
+                    <input
+                      value={formatValue}
+                      placeholder="e.g. YYYY-MM-DD HH:mm:SS.sss"
+                      onChange={e => {
+                        const newFormat = e.target.value;
+                        // Preserve existing options including mergeIdenticalTimestamps
+                        const newOptions = { 
+                          ...parsingOptions, 
+                          [pod]: { 
+                            ...(isLegacyFormat ? {} : parsingOptions[pod]),
+                            format: newFormat 
+                          } 
+                        };
+                        updateParsingOptions(newOptions);
+                      }}
+                      style={{width: '100%', padding: '5px', color: '#333', backgroundColor: 'white', border: '1px solid #ccc'}}
+                    />
+                  </td>
+                  <td style={{padding: '10px'}}>
+                    <label style={{display: 'flex', alignItems: 'center', color: '#333'}}>
+                      <input
+                        type="checkbox"
+                        checked={!isLegacyFormat && parsingOptions[pod].mergeIdenticalTimestamps}
+                        onChange={e => {
+                          const mergeIdenticalTimestamps = e.target.checked;
+                          // Update or create the mergeIdenticalTimestamps property
+                          const newOptions = { 
+                            ...parsingOptions, 
+                            [pod]: { 
+                              ...(isLegacyFormat ? { format: '' } : parsingOptions[pod]),
+                              mergeIdenticalTimestamps 
+                            } 
+                          };
+                          updateParsingOptions(newOptions);
+                        }}
+                        style={{marginRight: '8px'}}
+                      />
+                      <span>Merge identical timestamps</span>
+                    </label>
+                  </td>
+                  <td style={{padding: '10px', textAlign: 'center'}}>
+                    <button 
+                      onClick={() => {
+                        const newOptions = { ...parsingOptions };
+                        delete newOptions[pod];
+                        updateParsingOptions(newOptions);
+                      }}
+                      style={{padding: '5px 10px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer'}}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
       
-      <button 
-        onClick={onClose}
-        style={{marginTop: '15px'}}
-      >
-        Close
-      </button>
+      <div style={{margin: '20px 0', padding: '15px', background: '#e8f0fa', borderRadius: '5px', border: '1px solid #c0d5ea'}}>
+        <h3 style={{color: '#333', marginTop: '0'}}>Add New Pattern</h3>
+        <div style={{display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end'}}>
+          <div style={{flex: '1', minWidth: '200px'}}>
+            <label style={{display: 'block', marginBottom: '5px', color: '#333', fontWeight: 'bold'}}>Pod Prefix:</label>
+            <input
+              placeholder="e.g. frontend, backend"
+              id="newPod"
+              style={{width: '100%', padding: '8px', color: '#333', backgroundColor: 'white', border: '1px solid #ccc'}}
+            />
+          </div>
+          <div style={{flex: '2', minWidth: '300px'}}>
+            <label style={{display: 'block', marginBottom: '5px', color: '#333', fontWeight: 'bold'}}>Format:</label>
+            <input
+              placeholder="e.g. YYYY-MM-DD HH:mm:SS.sss"
+              id="newFormat"
+              style={{width: '100%', padding: '8px', color: '#333', backgroundColor: 'white', border: '1px solid #ccc'}}
+            />
+          </div>
+          <div style={{flex: '1', minWidth: '200px'}}>
+            <label style={{display: 'flex', alignItems: 'center', color: '#333'}}>
+              <input
+                type="checkbox"
+                id="newMergeTimestamps"
+                style={{marginRight: '8px'}}
+              />
+              <span>Merge identical timestamps</span>
+            </label>
+          </div>
+          <div>
+            <button 
+              onClick={() => {
+                const pod = document.getElementById('newPod').value;
+                const format = document.getElementById('newFormat').value;
+                const mergeIdenticalTimestamps = document.getElementById('newMergeTimestamps').checked;
+                
+                if (pod) {
+                  if (format) {
+                    // Create with format and mergeIdenticalTimestamps option
+                    updateParsingOptions({ 
+                      ...parsingOptions, 
+                      [pod]: { format, mergeIdenticalTimestamps }
+                    });
+                  } else {
+                    // Format is now required
+                    alert("Please provide a format string");
+                    return;
+                  }
+                  
+                  // Clear inputs
+                  document.getElementById('newPod').value = '';
+                  document.getElementById('newFormat').value = '';
+                  document.getElementById('newMergeTimestamps').checked = false;
+                } else {
+                  alert("Pod name is required");
+                }
+              }}
+              style={{padding: '8px 15px', background: '#4a90e2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div style={{textAlign: 'right', marginTop: '20px', borderTop: '1px solid #ddd', paddingTop: '15px'}}>
+        <button 
+          onClick={onClose}
+          style={{padding: '8px 20px', backgroundColor: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 }
