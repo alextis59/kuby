@@ -10,6 +10,7 @@ This is a local web application designed to retrieve, parse, and search logs fro
 - Executes \`kubectl\` commands to fetch namespaces, pods, and logs.
 - Provides RESTful API endpoints for data retrieval.
 - Supports fetching complete logs or the last X lines.
+- Fallback mechanism to retrieve namespaces directly when no contexts are found.
 
 ### Front-End
 - User-friendly interface for selecting namespaces and pods.
@@ -88,5 +89,11 @@ This is a local web application designed to retrieve, parse, and search logs fro
 - **Parsing Errors**: If logs are not parsed correctly, adjust the regex pattern in the parsing options editor.
 
 ---
+
+## Version History
+
+- **1.1.1**: Added fallback mechanism to retrieve namespaces directly when no contexts are found.
+- **1.1.0**: Added support for log parsing options modal and improved streaming.
+- **1.0.0**: Initial release with core functionality.
 
 This application provides a powerful tool for managing and analyzing Kubernetes logs with a focus on ease of use and customization.

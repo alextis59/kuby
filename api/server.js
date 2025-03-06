@@ -94,9 +94,46 @@ app.get('/contexts', async (req, res) => {
       contexts[contextName] = namespace;
     }
     
+    // Check if no contexts were found or all contexts have empty namespaces
+    if (Object.keys(contexts).length === 0 || Object.values(contexts).every(ns => !ns)) {
+      try {
+        console.log('No contexts found or all contexts have empty namespaces. Falling back to direct namespace retrieval.');
+        const { stdout: namespaceStdout } = await execPromise('kubectl get namespaces -o=jsonpath=\'{.items[*].metadata.name}\'');
+        if (namespaceStdout.trim()) {
+          const namespaces = namespaceStdout.split(' ');
+          // Create a context entry for each namespace
+          namespaces.forEach(namespace => {
+            contexts[`ns:${namespace}`] = namespace;
+          });
+        }
+      } catch (namespaceError) {
+        console.error('Failed to fetch namespaces as fallback:', namespaceError);
+      }
+    }
+    
     res.json(contexts);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    // If context retrieval fails completely, try to get namespaces directly
+    try {
+      console.log('Failed to get contexts, trying to retrieve namespaces directly as fallback.');
+      const { stdout } = await execPromise('kubectl get namespaces -o=jsonpath=\'{.items[*].metadata.name}\'');
+      const namespaces = stdout.split(' ');
+      const contexts = {};
+      // Create a context entry for each namespace
+      if (namespaces.length > 0) {
+        namespaces.forEach(namespace => {
+          contexts[`ns:${namespace}`] = namespace;
+        });
+        res.json(contexts);
+      } else {
+        throw new Error('No namespaces found');
+      }
+    } catch (namespaceError) {
+      res.status(500).json({ 
+        error: "Failed to get contexts and namespaces: " + error.message + 
+               ". Namespace fallback also failed: " + namespaceError.message 
+      });
+    }
   }
 });
 
@@ -104,8 +141,16 @@ app.get('/contexts', async (req, res) => {
 app.get('/set-context/:context', async (req, res) => {
   const { context } = req.params;
   try {
-    await execPromise(`kubectl config use-context ${context}`);
-    res.json({ success: true, message: `Context set to ${context}` });
+    // Check if this is a namespace-only synthetic context (starts with "ns:")
+    if (context.startsWith('ns:')) {
+      // For synthetic namespace contexts, we don't need to switch contexts
+      // Just return success as we'll use the namespace directly
+      res.json({ success: true, message: `Using namespace-only mode with ${context.substring(3)}` });
+    } else {
+      // This is a real context, so use kubectl to switch to it
+      await execPromise(`kubectl config use-context ${context}`);
+      res.json({ success: true, message: `Context set to ${context}` });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

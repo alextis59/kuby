@@ -1,6 +1,6 @@
 {
   "name": "kuby",
-  "version": "1.0.3",
+  "version": "1.1.1",
   "description": "Kubernetes log viewer application",
   "main": "api/server.js",
   "bin": {
@@ -10,7 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node api/server.js",
     "dev": "nodemon api/server.js",
-    "mock": "node api/mock_server.js"
+    "mock": "node api/mock_server.js",
+    "mock:no-contexts": "MOCK_NO_CONTEXTS=true node api/mock_server.js"
   },
   "author": "",
   "license": "ISC",

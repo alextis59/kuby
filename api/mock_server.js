@@ -257,7 +257,23 @@ const mockData = {
 // Route to get contexts
 app.get('/contexts', (req, res) => {
   setTimeout(() => {
-    res.json(mockData.contexts);
+    // Check if we should simulate a case where no contexts are found
+    const simulateNoContexts = process.env.MOCK_NO_CONTEXTS === 'true';
+    
+    if (simulateNoContexts) {
+      console.log('Mock server: Simulating no contexts found, using namespace-only fallback');
+      // Simulate fallback to namespace-only mode
+      const fallbackContexts = {};
+      
+      // Create a context entry for each namespace in the mock data
+      Object.keys(mockData.pods).forEach(namespace => {
+        fallbackContexts[`ns:${namespace}`] = namespace;
+      });
+      
+      res.json(fallbackContexts);
+    } else {
+      res.json(mockData.contexts);
+    }
   }, 500); // Add 500ms delay to simulate network latency
 });
 
@@ -265,7 +281,11 @@ app.get('/contexts', (req, res) => {
 app.get('/set-context/:context', (req, res) => {
   const { context } = req.params;
   setTimeout(() => {
-    if (mockData.contexts[context]) {
+    // Check if this is a namespace-only synthetic context (starts with "ns:")
+    if (context.startsWith('ns:')) {
+      // For synthetic namespace contexts, we don't need to switch contexts
+      res.json({ success: true, message: `Using namespace-only mode with ${context.substring(3)}` });
+    } else if (mockData.contexts[context]) {
       res.json({ success: true, message: `Context set to ${context}` });
     } else {
       res.status(404).json({ error: `Context ${context} not found` });
