@@ -30,6 +30,7 @@
   background: #252535; /* Slightly lighter than app background */
   box-shadow: 2px 0 10px rgba(0,0,0,0.3);
   padding: 20px;
+  padding-right: 25px; /* Extra padding to ensure content doesn't overlap with resize handle */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -39,6 +40,24 @@
   resize: horizontal;
   overflow-x: auto;
   border-right: 1px solid #313145;
+  scrollbar-width: thin;
+  scrollbar-color: #4c4c65 #252535;
+}
+
+/* Custom scrollbar for Webkit browsers */
+.toolbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.toolbar::-webkit-scrollbar-track {
+  background: #252535;
+  border-radius: 8px;
+}
+
+.toolbar::-webkit-scrollbar-thumb {
+  background-color: #4c4c65;
+  border-radius: 8px;
+  border: 2px solid #252535;
 }
 
 /* Resize handle custom styling */
@@ -48,24 +67,26 @@
 
 /* Custom resize handle overlay */
 .resize-handle {
-  position: absolute;
+  position: fixed;
   top: 0;
-  right: 0;
-  width: 10px;
-  height: 100%;
+  width: 16px;
+  height: 100vh;
   background-color: transparent;
   cursor: col-resize;
-  opacity: 0.5;
-  transition: background-color 0.2s;
+  opacity: 0.8;
+  transition: background-color 0.2s ease, width 0.2s ease;
   z-index: 10;
 }
 
 .resize-handle:hover {
   background-color: rgba(124, 58, 237, 0.3);
+  width: 20px;
 }
 
 .resize-handle.active {
   background-color: rgba(124, 58, 237, 0.5);
+  width: 20px;
+  transition: none; /* Remove all transitions when active to prevent lag */
 }
 
 /* Extra visual indicator for the resize handle */
@@ -74,10 +95,16 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 3px;
-  width: 3px;
-  background: linear-gradient(to right, #4b4b65 1px, transparent 1px);
-  background-size: 2px 100%;
+  left: 6px;
+  width: 4px;
+  background: linear-gradient(to right, 
+    rgba(124, 58, 237, 0.7) 1px, 
+    rgba(124, 58, 237, 0.3) 1px, 
+    rgba(124, 58, 237, 0.3) 3px, 
+    transparent 3px);
+  background-size: 6px 100%;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.4);
 }
 
 /* Logs container on the right */

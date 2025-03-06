@@ -49,6 +49,20 @@ function Toolbar({
     // Set the initial width from state
     toolbar.style.width = `${width}px`;
     
+    // Position the resize handle next to the toolbar
+    const updateResizeHandlePosition = () => {
+      const toolbarRect = toolbar.getBoundingClientRect();
+      // Place the handle so it's mostly outside the toolbar but has a slight overlap
+      resizeHandle.style.left = `${toolbarRect.right - 5}px`;
+    };
+    
+    // Initial position update
+    updateResizeHandlePosition();
+    
+    // Update position on window resize and toolbar scroll
+    window.addEventListener('resize', updateResizeHandlePosition);
+    toolbar.addEventListener('scroll', updateResizeHandlePosition);
+    
     // Mouse down handler to start resizing
     const handleMouseDown = (e) => {
       isResizingRef.current = true;
@@ -72,6 +86,9 @@ function Toolbar({
       
       // Update toolbar width
       toolbar.style.width = `${newWidth}px`;
+      
+      // Update resize handle position directly based on mouse position for more responsive feel
+      resizeHandle.style.left = `${e.clientX - 3}px`;
     };
     
     // Mouse up handler to end resizing
@@ -85,6 +102,9 @@ function Toolbar({
         // Save the new width to state and localStorage
         const newWidth = toolbar.getBoundingClientRect().width;
         onWidthChange(newWidth);
+        
+        // Final update to handle position
+        updateResizeHandlePosition();
       }
     };
     
@@ -109,6 +129,10 @@ function Toolbar({
       const newWidth = Math.max(MIN_TOOLBAR_WIDTH, Math.min(MAX_TOOLBAR_WIDTH, startWidthRef.current + deltaX));
       
       toolbar.style.width = `${newWidth}px`;
+      
+      // Update resize handle position directly based on touch position for more responsive feel
+      resizeHandle.style.left = `${e.touches[0].clientX - 3}px`;
+      
       e.preventDefault();
     };
     
@@ -121,6 +145,9 @@ function Toolbar({
         
         const newWidth = toolbar.getBoundingClientRect().width;
         onWidthChange(newWidth);
+        
+        // Final update to handle position
+        updateResizeHandlePosition();
       }
     };
     
@@ -145,6 +172,10 @@ function Toolbar({
       resizeHandle.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
+      
+      // Remove resize and scroll event listeners
+      window.removeEventListener('resize', updateResizeHandlePosition);
+      toolbar.removeEventListener('scroll', updateResizeHandlePosition);
     };
   }, [width, onWidthChange]);
 
