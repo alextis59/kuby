@@ -82,15 +82,23 @@ function parseLogs(logsText, podName, parsingOptions) {
       // If we have a format string, use moment.js to parse
       if (formatString) {
         // Convert our custom format tokens to moment format tokens if needed
-        const momentFormat = formatString
-          .replace('YYYY', 'YYYY')
-          .replace('YY', 'YY')
-          .replace('MM', 'MM')
-          .replace('DD', 'DD')
-          .replace('HH', 'HH')
-          .replace('mm', 'mm')
-          .replace('SS', 'ss')
-          .replace('sss', 'SSS');
+        // Use a mapping instead of sequential replacements to avoid conflicts
+        const formatMap = {
+          'YYYY': 'YYYY',
+          'YY': 'YY',
+          'MM': 'MM',
+          'DD': 'DD',
+          'HH': 'HH',
+          'mm': 'mm',
+          'SS': 'ss',
+          'sss': 'SSS'
+        };
+        
+        // Create a regex pattern that matches all format tokens
+        const tokenPattern = new RegExp(Object.keys(formatMap).join('|'), 'g');
+        
+        // Replace each token with its moment.js equivalent
+        const momentFormat = formatString.replace(tokenPattern, match => formatMap[match]);
         
         // Parse with moment.js
         const momentDate = moment(timestampStr, momentFormat);
