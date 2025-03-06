@@ -46,6 +46,7 @@ function App() {
   const [error, setError] = React.useState('');
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [streamSocket, setStreamSocket] = React.useState(null);
+  const [isFollowing, setIsFollowing] = React.useState(true); // Track if log following is enabled
   
   // Toast notifications
   const { toasts, showToast, removeToast } = useToasts();
@@ -289,6 +290,9 @@ function App() {
     setPodsWithLogs([...selectedPods]);
     setPodsWithErrors([]);
     
+    // Enable following by default when streaming starts
+    setIsFollowing(true);
+    
     // Create a WebSocket connection
     const socket = createLogStream(
       selectedNamespace,
@@ -511,6 +515,9 @@ function App() {
           isSameDay={isSameDay}
           isSinglePod={selectedPods.length === 1}
           showToast={showToast}
+          isStreaming={isStreaming}
+          isFollowing={isFollowing}
+          setIsFollowing={setIsFollowing}
         />
       </div>
       

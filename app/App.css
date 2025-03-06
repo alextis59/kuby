@@ -392,6 +392,12 @@ button.stop-streaming:hover {
   border: 1px solid #313145;
 }
 
+.logs-header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .export-button {
   width: auto;
   margin: 0;
@@ -405,6 +411,30 @@ button.stop-streaming:hover {
   background: linear-gradient(135deg, #059669, #047857);
   transform: translateY(-1px);
   box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.follow-button {
+  width: auto;
+  margin: 0;
+  padding: 8px 15px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-size: 0.9em;
+}
+
+.follow-button:hover {
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.follow-button.following {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.follow-button.following:hover {
+  background: linear-gradient(135deg, #059669, #047857);
 }
 
 .logs ul {
